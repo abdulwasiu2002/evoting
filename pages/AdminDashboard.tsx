@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { User, Candidate, AuditLog, ApprovalStatus, Position, Vote, ElectionSettings } from '../types';
+import { User, Candidate, AuditLog, Vote, ElectionSettings, Position } from '../types';
 import { db } from '../services/mockDb';
 import { Button } from '../components/Button';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -417,7 +417,7 @@ export const AdminDashboard: React.FC = () => {
 
       {activeTab === 'results' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
                 
                 {/* Total Votes Summary Card */}
                 <div className="bg-white p-6 rounded-lg shadow border border-emerald-100 flex items-center">
@@ -436,12 +436,12 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-6 rounded-lg shadow min-w-0">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-medium text-gray-900">Vote Distribution</h3>
                     </div>
                     <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <BarChart data={results}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
@@ -536,10 +536,10 @@ export const AdminDashboard: React.FC = () => {
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Department Chart */}
-                  <div className="bg-white p-6 rounded-lg shadow">
+                  <div className="bg-white p-6 rounded-lg shadow min-w-0">
                       <h3 className="text-lg font-bold text-gray-900 mb-4">Registrations by Department</h3>
                       <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <BarChart data={departmentStats} layout="vertical" margin={{ left: 40 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis type="number" allowDecimals={false} />
@@ -552,10 +552,10 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   {/* Votes Chart */}
-                  <div className="bg-white p-6 rounded-lg shadow">
+                  <div className="bg-white p-6 rounded-lg shadow min-w-0">
                       <h3 className="text-lg font-bold text-gray-900 mb-4">Total Votes per Candidate</h3>
                       <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <BarChart data={results}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" tick={{fontSize: 10}} interval={0} angle={-45} textAnchor="end" height={60} />
