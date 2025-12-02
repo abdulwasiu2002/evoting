@@ -534,7 +534,6 @@ class SupabaseDB implements IDatabaseService {
       const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
       
       // AUTO-SEED ADMIN LOGIC: 
-      // If user tries to login as 'admin'/'admin123' and it doesn't exist, create it.
       if ((error || !data) && matricNo === 'admin' && password === 'admin123') {
           console.log("Admin account not found. Attempting to create default admin...");
           
@@ -553,6 +552,8 @@ class SupabaseDB implements IDatabaseService {
               return this.mapUser(newAdmin);
           } else {
               console.error("Failed to auto-seed admin:", createError);
+              // CRITICAL FIX: Propagate the DB error so user knows RLS is blocking it
+              if (createError?.message) throw new Error("DB Error: " + createError.message);
           }
       }
 
@@ -568,6 +569,10 @@ class SupabaseDB implements IDatabaseService {
       return this.mapUser(data);
     } catch (e: any) {
         console.error("Login Error:", e);
+        // FIX: Detect ERR_NAME_NOT_RESOLVED (Configuration Error)
+        if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
+             throw new Error("Network Error: Could not connect to Database. Check your Vercel API URL configuration. You may have pasted the API Key into the URL field.");
+        }
         throw new Error(e.message || 'Connection failed');
     }
   }

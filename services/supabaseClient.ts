@@ -28,13 +28,30 @@ const getEnv = (key: string) => {
 };
 
 // Raw values
-const rawUrl = getEnv('SUPABASE_URL');
-const rawKey = getEnv('SUPABASE_ANON_KEY');
+let rawUrl = getEnv('SUPABASE_URL');
+let rawKey = getEnv('SUPABASE_ANON_KEY');
+
+// --- INTELLIGENT CONFIG FIXER ---
+// Detect if user swapped URL and Key (Common mistake)
+const isKeyLikelyUrl = (val: string) => val && (val.includes('supabase.co') || val.startsWith('http'));
+const isUrlLikelyKey = (val: string) => val && val.startsWith('ey');
+
+if (isUrlLikelyKey(rawUrl) && isKeyLikelyUrl(rawKey)) {
+    console.warn("⚠️ CONFIG WARNING: It looks like VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are swapped. Swapping them automatically...");
+    const temp = rawUrl;
+    rawUrl = rawKey;
+    rawKey = temp;
+} else if (isUrlLikelyKey(rawUrl)) {
+    console.error("❌ CONFIG ERROR: VITE_SUPABASE_URL looks like an API Key. Please check your Vercel Environment Variables.");
+}
+// --------------------------------
 
 // Helper to sanitize inputs (remove spaces, ensure https)
 const sanitizeUrl = (url: string) => {
     if (!url) return '';
     let cleaned = url.trim();
+    if (cleaned.startsWith('ey')) return cleaned; // It's a key, not a url (fallback)
+    
     if (!cleaned.startsWith('http')) {
         cleaned = `https://${cleaned}`;
     }
@@ -51,14 +68,14 @@ const envKey = rawKey ? rawKey.trim() : '';
 const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
 
 export const isSupabaseConfigured = () => {
-  return !!envUrl && !!envKey && !envUrl.includes('placeholder');
+  return !!envUrl && !!envKey && !envUrl.includes('placeholder') && !envUrl.startsWith('ey');
 };
 
 const supabaseUrl = isSupabaseConfigured() ? envUrl : PLACEHOLDER_URL;
 const supabaseAnonKey = isSupabaseConfigured() ? envKey : 'placeholder-key';
 
 if (!isSupabaseConfigured()) {
-  console.warn("Supabase credentials missing. App will default to Demo Mode (MockDB). Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.");
+  console.warn("Supabase credentials missing or invalid. App will default to Demo Mode (MockDB).");
 } else {
   console.log("Supabase Client initialized successfully.");
 }
