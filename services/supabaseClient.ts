@@ -31,6 +31,12 @@ const getEnv = (key: string) => {
 let rawUrl = getEnv('SUPABASE_URL');
 let rawKey = getEnv('SUPABASE_ANON_KEY');
 
+// Helper to remove quotes if user copy-pasted them
+const cleanStr = (s: string) => s ? s.replace(/["']/g, '').trim() : '';
+
+rawUrl = cleanStr(rawUrl);
+rawKey = cleanStr(rawKey);
+
 // --- INTELLIGENT CONFIG FIXER ---
 // Detect if user swapped URL and Key (Common mistake)
 const isKeyLikelyUrl = (val: string) => val && (val.includes('supabase.co') || val.startsWith('http'));
@@ -41,8 +47,6 @@ if (isUrlLikelyKey(rawUrl) && isKeyLikelyUrl(rawKey)) {
     const temp = rawUrl;
     rawUrl = rawKey;
     rawKey = temp;
-} else if (isUrlLikelyKey(rawUrl)) {
-    console.error("❌ CONFIG ERROR: VITE_SUPABASE_URL looks like an API Key. Please check your Vercel Environment Variables.");
 }
 // --------------------------------
 
@@ -50,7 +54,13 @@ if (isUrlLikelyKey(rawUrl) && isKeyLikelyUrl(rawKey)) {
 const sanitizeUrl = (url: string) => {
     if (!url) return '';
     let cleaned = url.trim();
-    if (cleaned.startsWith('ey')) return cleaned; // It's a key, not a url (fallback)
+    
+    // SAFETY CHECK: If the URL looks like an API Key (starts with ey), IT IS WRONG.
+    // Return empty string to force fallback to MockDB instead of crashing the app.
+    if (cleaned.startsWith('ey')) {
+        console.error("❌ CRITICAL CONFIG ERROR: VITE_SUPABASE_URL is set to an API Key. It must be a URL (https://...). App reverting to Demo Mode.");
+        return ''; 
+    }
     
     if (!cleaned.startsWith('http')) {
         cleaned = `https://${cleaned}`;
@@ -62,12 +72,13 @@ const sanitizeUrl = (url: string) => {
 };
 
 const envUrl = sanitizeUrl(rawUrl);
-const envKey = rawKey ? rawKey.trim() : '';
+const envKey = rawKey;
 
 // Constants
 const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
 
 export const isSupabaseConfigured = () => {
+  // Must have a valid URL (not a key, not placeholder) and a valid Key
   return !!envUrl && !!envKey && !envUrl.includes('placeholder') && !envUrl.startsWith('ey');
 };
 
