@@ -15,11 +15,19 @@ const getEnv = (key: string) => {
 };
 
 // Use placeholders if env vars are missing to prevent "supabaseUrl is required" crash
-const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL') || 'https://placeholder.supabase.co';
-const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || getEnv('REACT_APP_SUPABASE_ANON_KEY') || 'placeholder-key';
+const envUrl = getEnv('SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL');
+const envKey = getEnv('SUPABASE_ANON_KEY') || getEnv('REACT_APP_SUPABASE_ANON_KEY');
 
-if (supabaseUrl === 'https://placeholder.supabase.co') {
-  console.warn("Supabase credentials missing. Using placeholder to prevent crash. Please set SUPABASE_URL and SUPABASE_ANON_KEY.");
+// Determine if we are using real credentials
+export const isSupabaseConfigured = () => {
+  return !!envUrl && !!envKey && envUrl !== 'https://placeholder.supabase.co';
+};
+
+const supabaseUrl = envUrl || 'https://placeholder.supabase.co';
+const supabaseAnonKey = envKey || 'placeholder-key';
+
+if (!isSupabaseConfigured()) {
+  console.warn("Supabase credentials missing. App will default to Demo Mode (MockDB). Set SUPABASE_URL and SUPABASE_ANON_KEY to enable Production Mode.");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

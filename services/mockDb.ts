@@ -1,11 +1,12 @@
 import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings } from '../types';
 import { sendEmail } from './emailService';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // --- CONFIGURATION ---
-// Set to TRUE for Demo Mode (Local Storage)
-// Set to FALSE for Production Mode (Supabase)
-const USE_MOCK_DB = false; 
+// Automatically determine mode:
+// If Supabase keys are present -> Production Mode (False)
+// If keys are missing -> Demo Mode (True)
+const USE_MOCK_DB = !isSupabaseConfigured(); 
 
 // ---------------------
 
@@ -129,6 +130,7 @@ class MockDB implements IDatabaseService {
 
   constructor() {
     this.init();
+    console.log("MockDB Initialized (Demo Mode)");
     
     // Listen for storage events to support multi-tab real-time updates
     window.addEventListener('storage', (event) => {
@@ -431,7 +433,7 @@ class MockDB implements IDatabaseService {
 
 class SupabaseDB implements IDatabaseService {
   constructor() {
-    // console.log("Initializing Supabase Service");
+    console.log("SupabaseDB Initialized (Production Mode)");
   }
 
   public subscribe(event: string, callback: Listener): () => void {
