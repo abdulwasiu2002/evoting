@@ -309,8 +309,30 @@ class MockDB implements IDatabaseService {
   async register(data: Omit<User, 'id' | 'role' | 'status' | 'createdAt'>): Promise<User> {
     await delay(800);
     const users = this.getItems<User>(USERS_KEY);
-    if (users.find(u => u.matricNo === data.matricNo)) {
-      throw new Error('Matric number already registered');
+    const existingIndex = users.findIndex(u => u.matricNo === data.matricNo);
+    
+    if (existingIndex !== -1) {
+        // If user exists and is REJECTED, allow re-registration (overwrite)
+        const existingUser = users[existingIndex];
+        if (existingUser.status === ApprovalStatus.REJECTED) {
+             const updatedUser: User = {
+                ...existingUser,
+                fullName: data.fullName,
+                department: data.department,
+                passwordHash: data.passwordHash,
+                idCardUrl: data.idCardUrl || existingUser.idCardUrl,
+                status: ApprovalStatus.PENDING,
+                rejectionReason: undefined,
+                createdAt: Date.now() // Update timestamp to bump it to top of pending list
+             };
+             users[existingIndex] = updatedUser;
+             this.setItems(USERS_KEY, users);
+             this.addAudit('system', UserRole.GUEST, 'registration_resubmitted', `User ${updatedUser.fullName} re-registered`, updatedUser.id);
+             this.emit('user_update', updatedUser);
+             return updatedUser;
+        } else {
+             throw new Error('Matric number already registered');
+        }
     }
 
     const newUser: User = {
@@ -578,7 +600,15 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async register(data: Omit<User, 'id' | 'role' | 'status' | 'createdAt'>): Promise<User> {
-    const newUser = {
+    // 1. Check if user already exists
+    const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('matric_no', data.matricNo)
+        .single();
+    
+    // Payload for insertion or update
+    const userPayload = {
       full_name: data.fullName,
       matric_no: data.matricNo,
       department: data.department,
@@ -586,10 +616,31 @@ class SupabaseDB implements IDatabaseService {
       id_card_url: data.idCardUrl, // Base64 string for now
       role: UserRole.STUDENT,
       status: ApprovalStatus.PENDING,
-      created_at: Date.now()
+      created_at: Date.now(),
+      rejection_reason: null // Clear any previous rejection reason
     };
 
-    const { data: inserted, error } = await supabase.from('users').insert(newUser).select().single();
+    if (existingUser) {
+        if (existingUser.status === ApprovalStatus.REJECTED) {
+            // Allow re-registration: Update the existing record
+            const { data: updated, error: updateError } = await supabase
+                .from('users')
+                .update(userPayload)
+                .eq('matric_no', data.matricNo)
+                .select()
+                .single();
+                
+            if (updateError) throw new Error(updateError.message);
+            await sendEmail('admins@nacoss.edu.ng', 'Re-Registration', `User ${data.fullName} re-registered`);
+            return this.mapUser(updated);
+        } else {
+            // Already approved or pending
+            throw new Error('Matric number already registered');
+        }
+    }
+
+    // New Registration
+    const { data: inserted, error } = await supabase.from('users').insert(userPayload).select().single();
     if (error) {
       if (error.code === '23505') throw new Error('Matric number already registered');
       throw new Error(error.message);
