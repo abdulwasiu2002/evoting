@@ -23,12 +23,29 @@ export const Register: React.FC = () => {
     const fetchDepts = async () => {
         try {
             const depts = await db.getDepartments();
-            setDepartments(depts);
-            if (depts.length > 0 && !formData.department) {
-                setFormData(prev => ({ ...prev, department: depts[0] }));
+            if (depts && depts.length > 0) {
+                setDepartments(depts);
+                if (!formData.department) {
+                    setFormData(prev => ({ ...prev, department: depts[0] }));
+                }
+            } else {
+                throw new Error("No departments found in DB");
             }
         } catch (e) {
-            console.error("Failed to load departments");
+            console.warn("Failed to load departments from DB, using fallback list.", e);
+            // Fallback list to ensure UI doesn't get stuck on "Loading..."
+            const fallbackDepts = [
+                'Computer Science',
+                'Software Engineering',
+                'Cyber Security',
+                'Information Technology',
+                'Information Systems',
+                'Data Science'
+            ];
+            setDepartments(fallbackDepts);
+            if (!formData.department) {
+                setFormData(prev => ({ ...prev, department: fallbackDepts[0] }));
+            }
         }
     };
     fetchDepts();
@@ -44,8 +61,8 @@ export const Register: React.FC = () => {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
+          const MAX_WIDTH = 500; // Reduced max width
+          const MAX_HEIGHT = 500;
           let width = img.width;
           let height = img.height;
 
@@ -66,8 +83,8 @@ export const Register: React.FC = () => {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          // Compress to JPEG at 0.7 quality
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          // Compress to JPEG at 0.5 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
           resolve(dataUrl);
         };
         img.onerror = (err) => reject(err);
@@ -83,10 +100,18 @@ export const Register: React.FC = () => {
         // Show loading state for image processing if needed
         const compressedDataUrl = await compressImage(file);
         setPreview(compressedDataUrl);
+        setError(null);
       } catch (err) {
         setError("Failed to process image. Please try another file.");
       }
     }
+  };
+
+  const handleClearData = () => {
+      if (window.confirm("This will clear all local data to fix the storage error. Continue?")) {
+          localStorage.clear();
+          window.location.reload();
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,8 +140,8 @@ export const Register: React.FC = () => {
       navigate('/login');
     } catch (err: any) {
       console.error(err);
-      if (err.message && err.message.includes('quota')) {
-        setError("Storage full: The image is too large for the demo database. We tried to compress it but it's still too big. Please use a smaller image.");
+      if (err.message && (err.message.includes('quota') || err.name === 'QuotaExceededError')) {
+        setError("STORAGE FULL");
       } else {
         setError(err.message || 'Registration failed');
       }
@@ -129,7 +154,22 @@ export const Register: React.FC = () => {
     <div className="max-w-4xl mx-auto bg-white rounded-lg shadow overflow-hidden flex flex-col md:flex-row my-8">
       <div className="md:w-1/2 p-8 border-r border-gray-100">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Student Registration</h2>
-        {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
+        
+        {error === "STORAGE FULL" ? (
+             <div className="bg-red-50 text-red-700 p-4 rounded mb-4 text-sm border border-red-200">
+                <p className="font-bold mb-2">Browser Storage Full</p>
+                <p className="mb-3">The demo database has run out of space for images.</p>
+                <button 
+                    type="button"
+                    onClick={handleClearData}
+                    className="bg-red-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-red-700 transition"
+                >
+                    Clear Data & Reset App
+                </button>
+             </div>
+        ) : error && (
+            <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm break-words">{error}</div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
