@@ -1,14 +1,11 @@
-
 import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings } from '../types';
 import { sendEmail } from './emailService';
+import { supabase } from './supabaseClient';
 
 // --- CONFIGURATION ---
-// Set this to false to connect to your real Flask/Python backend
-// Set this to true to use the local browser storage (Demo Mode)
-const USE_MOCK_DB = true; 
-
-// Your Backend URL (e.g., http://localhost:5000/api or https://api.yourdomain.com)
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Set to TRUE for Demo Mode (Local Storage)
+// Set to FALSE for Production Mode (Supabase)
+const USE_MOCK_DB = false; 
 
 // ---------------------
 
@@ -71,24 +68,6 @@ const seedCandidates: Candidate[] = [
     position: 'President',
     manifesto: 'Inclusivity is key. I promise to organize more tutorials for freshers and ensure the departmental laboratory is accessible 24/7.',
     photoUrl: 'https://picsum.photos/200/200?random=2'
-  },
-  {
-    id: 'c-3',
-    name: 'Sarah Johnson',
-    matricNo: 'CS/2022/112',
-    department: 'Computer Science',
-    position: 'General Secretary',
-    manifesto: 'Effective communication is the backbone of any association. I will ensure timely dissemination of information and digitalize our secretariat.',
-    photoUrl: 'https://picsum.photos/200/200?random=3'
-  },
-  {
-    id: 'c-4',
-    name: 'David Mark',
-    matricNo: 'CS/2022/089',
-    department: 'Computer Science',
-    position: 'Director of Socials',
-    manifesto: 'Tech bro no suppose boring! I will organize the biggest NACOSS dinner and tech-week ever witnessed in this campus.',
-    photoUrl: 'https://picsum.photos/200/200?random=4'
   }
 ];
 
@@ -242,10 +221,8 @@ class MockDB implements IDatabaseService {
   }
 
   private addAudit(actorId: string, role: UserRole, action: string, details: string, targetId?: string) {
-    // Audit logs can be heavy, in demo mode we might trim them if quota is tight
     try {
         const logs = this.getItems<AuditLog>(AUDIT_KEY);
-        // Limit audit logs in mock mode to last 50 to save space
         if (logs.length > 50) logs.pop();
         
         logs.unshift({
@@ -271,7 +248,6 @@ class MockDB implements IDatabaseService {
   async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {
     await delay(300);
     this.setItem(SETTINGS_KEY, settings);
-    this.addAudit(adminId, UserRole.ADMIN, 'settings_updated', `Election settings updated. Enabled: ${settings.isVotingEnabled}`);
     return settings;
   }
 
@@ -285,7 +261,6 @@ class MockDB implements IDatabaseService {
     if (depts.includes(name)) throw new Error("Department already exists");
     depts.push(name);
     this.setItems(DEPARTMENTS_KEY, depts);
-    this.addAudit(adminId, UserRole.ADMIN, 'department_added', `Added department: ${name}`);
     return name;
   }
 
@@ -293,7 +268,6 @@ class MockDB implements IDatabaseService {
     let depts = this.getItems<string>(DEPARTMENTS_KEY);
     depts = depts.filter(d => d !== name);
     this.setItems(DEPARTMENTS_KEY, depts);
-    this.addAudit(adminId, UserRole.ADMIN, 'department_removed', `Removed department: ${name}`);
   }
 
   async getPositions(): Promise<string[]> {
@@ -306,7 +280,6 @@ class MockDB implements IDatabaseService {
     if (positions.includes(name)) throw new Error("Position already exists");
     positions.push(name);
     this.setItems(POSITIONS_KEY, positions);
-    this.addAudit(adminId, UserRole.ADMIN, 'position_added', `Added position: ${name}`);
     return name;
   }
 
@@ -314,7 +287,6 @@ class MockDB implements IDatabaseService {
     let positions = this.getItems<string>(POSITIONS_KEY);
     positions = positions.filter(p => p !== name);
     this.setItems(POSITIONS_KEY, positions);
-    this.addAudit(adminId, UserRole.ADMIN, 'position_removed', `Removed position: ${name}`);
   }
 
   async login(matricNo: string, password: string): Promise<User> {
@@ -351,11 +323,8 @@ class MockDB implements IDatabaseService {
     users.push(newUser);
     this.setItems(USERS_KEY, users);
     
-    // We try to audit, but don't fail registration if audit fails
     this.addAudit('system', UserRole.GUEST, 'registration_submitted', `User ${newUser.fullName} registered`, newUser.id);
-    
     this.emit('user_update', newUser);
-    await sendEmail('admins@nacoss.edu.ng', 'New NACOSS Registration Pending', `Name: ${newUser.fullName}\nMatric: ${newUser.matricNo}`);
     return newUser;
   }
 
@@ -377,9 +346,6 @@ class MockDB implements IDatabaseService {
     this.setItems(USERS_KEY, users);
     this.addAudit(adminId, UserRole.ADMIN, approved ? 'registration_approved' : 'registration_rejected', `User ${user.matricNo} processed`, userId);
     this.emit('user_update', user);
-
-    const studentEmail = user.email || `${user.matricNo.toLowerCase()}@student.nacoss.edu.ng`;
-    await sendEmail(studentEmail, approved ? 'Approved' : 'Rejected', approved ? 'You can now login.' : `Reason: ${reason}`);
   }
 
   async getCandidates(): Promise<Candidate[]> {
@@ -392,7 +358,6 @@ class MockDB implements IDatabaseService {
       const newCand = { ...candidate, id: `c-${Date.now()}` };
       candidates.push(newCand);
       this.setItems(CANDIDATES_KEY, candidates);
-      this.addAudit(adminId, UserRole.ADMIN, 'candidate_added', `Added ${candidate.name}`, newCand.id);
       return newCand;
   }
 
@@ -403,7 +368,6 @@ class MockDB implements IDatabaseService {
 
     candidates[index] = candidate;
     this.setItems(CANDIDATES_KEY, candidates);
-    this.addAudit(adminId, UserRole.ADMIN, 'candidate_updated', `Updated ${candidate.name}`, candidate.id);
     return candidate;
   }
 
@@ -411,7 +375,6 @@ class MockDB implements IDatabaseService {
       let candidates = this.getItems<Candidate>(CANDIDATES_KEY);
       candidates = candidates.filter(c => c.id !== candidateId);
       this.setItems(CANDIDATES_KEY, candidates);
-      this.addAudit(adminId, UserRole.ADMIN, 'candidate_removed', `Removed candidate ${candidateId}`, candidateId);
   }
 
   async castVote(studentId: string, candidateId: string, position: Position): Promise<Vote> {
@@ -463,163 +426,296 @@ class MockDB implements IDatabaseService {
 }
 
 // ----------------------------------------------------------------------
-// 2. REAL API SERVICE (Connects to Flask/Python Backend)
+// 2. SUPABASE DB (Real Production Database)
 // ----------------------------------------------------------------------
 
-class ApiDB implements IDatabaseService {
-  private tokenKey = 'univote_auth_token';
+class SupabaseDB implements IDatabaseService {
+  constructor() {
+    // console.log("Initializing Supabase Service");
+  }
 
-  // --- Real-time Subscription ---
-  // In a real REST app without WebSockets, we rely on Polling for simplicity.
-  // Advanced: Connect to a /events SSE endpoint here.
   public subscribe(event: string, callback: Listener): () => void {
-    // Poll every 10 seconds for generic updates if needed
-    const interval = setInterval(() => {
-       // Optional: fetch check
-    }, 10000);
-    return () => clearInterval(interval);
+    // Basic Realtime for Supabase
+    if (event === 'vote_update') {
+      const channel = supabase
+        .channel('public:votes')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes' }, (payload) => {
+          callback(payload.new);
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+    if (event === 'user_update') {
+      const channel = supabase
+        .channel('public:users')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+          callback(payload.new);
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+    return () => {};
   }
 
   public connectToLiveUpdates(event: string, callback: Listener): () => void {
-    // For results, we poll frequently (e.g. 5 seconds)
-    const interval = setInterval(async () => {
-        // Trigger a refresh call on the frontend
-        callback(null);
-    }, 5000);
-    return () => clearInterval(interval);
+    return this.subscribe(event, callback);
   }
 
-  // --- Helpers ---
-  private getToken(): string | null {
-      return localStorage.getItem(this.tokenKey);
-  }
-
-  private setToken(token: string) {
-      localStorage.setItem(this.tokenKey, token);
-  }
-
-  private async request<T>(method: string, endpoint: string, body?: any): Promise<T> {
-      const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-      };
-      const token = this.getToken();
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            method,
-            headers,
-            body: body ? JSON.stringify(body) : undefined
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
-        }
-
-        return await response.json();
-      } catch (err: any) {
-          console.error(`API Request Failed: ${endpoint}`, err);
-          throw err;
-      }
-  }
-
-  // --- Settings ---
   async getElectionSettings(): Promise<ElectionSettings> {
-      return this.request('GET', '/settings');
+    const { data, error } = await supabase.from('settings').select('*').single();
+    if (error) {
+      // Return default if not found
+      return defaultSettings;
+    }
+    return {
+      startDate: data.start_date,
+      endDate: data.end_date,
+      isVotingEnabled: data.is_voting_enabled
+    };
   }
 
   async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {
-      return this.request('PUT', '/settings', settings);
+    const { error } = await supabase.from('settings').upsert({
+      id: 1,
+      start_date: settings.startDate,
+      end_date: settings.endDate,
+      is_voting_enabled: settings.isVotingEnabled
+    });
+    if (error) throw new Error(error.message);
+    this.logAudit(adminId, UserRole.ADMIN, 'settings_updated', 'Updated election settings');
+    return settings;
   }
 
-  // --- Departments ---
   async getDepartments(): Promise<string[]> {
-      return this.request('GET', '/departments');
+    const { data, error } = await supabase.from('departments').select('name');
+    if (error) return [];
+    return data.map((d: any) => d.name);
   }
 
   async addDepartment(adminId: string, name: string): Promise<string> {
-      return this.request('POST', '/departments', { name });
+    const { error } = await supabase.from('departments').insert({ name });
+    if (error) throw new Error(error.message);
+    return name;
   }
 
   async removeDepartment(adminId: string, name: string): Promise<void> {
-      return this.request('DELETE', `/departments/${encodeURIComponent(name)}`);
+    await supabase.from('departments').delete().eq('name', name);
   }
 
-  // --- Positions ---
   async getPositions(): Promise<string[]> {
-      return this.request('GET', '/positions');
+    const { data, error } = await supabase.from('positions').select('name');
+    if (error) return [];
+    return data.map((d: any) => d.name);
   }
 
   async addPosition(adminId: string, name: string): Promise<string> {
-      return this.request('POST', '/positions', { name });
+    const { error } = await supabase.from('positions').insert({ name });
+    if (error) throw new Error(error.message);
+    return name;
   }
 
   async removePosition(adminId: string, name: string): Promise<void> {
-      return this.request('DELETE', `/positions/${encodeURIComponent(name)}`);
+    await supabase.from('positions').delete().eq('name', name);
   }
 
-  // --- Auth ---
   async login(matricNo: string, password: string): Promise<User> {
-      const res = await this.request<{token: string, user: User}>('POST', '/auth/login', { matricNo, password });
-      this.setToken(res.token);
-      return res.user;
+    // Note: In real production, use supabase.auth.signInWithPassword.
+    // Here we query the users table to match the mock logic structure.
+    const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
+    
+    if (error || !data) throw new Error('Invalid credentials');
+    
+    // Check password (plain text for this demo - Use hashing in real app)
+    if (data.password_hash !== password) throw new Error('Invalid credentials');
+
+    if (data.role === UserRole.STUDENT && data.status !== ApprovalStatus.APPROVED) {
+      if (data.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${data.rejection_reason}`);
+      throw new Error('Account pending approval');
+    }
+
+    return this.mapUser(data);
   }
 
   async register(data: Omit<User, 'id' | 'role' | 'status' | 'createdAt'>): Promise<User> {
-      // Backend expects file upload separately or base64. 
-      // Assuming backend accepts base64 idCardUrl as per this mock implementation.
-      return this.request('POST', '/auth/register', data);
+    const newUser = {
+      full_name: data.fullName,
+      matric_no: data.matricNo,
+      department: data.department,
+      password_hash: data.passwordHash,
+      id_card_url: data.idCardUrl, // Base64 string for now
+      role: UserRole.STUDENT,
+      status: ApprovalStatus.PENDING,
+      created_at: Date.now()
+    };
+
+    const { data: inserted, error } = await supabase.from('users').insert(newUser).select().single();
+    if (error) {
+      if (error.code === '23505') throw new Error('Matric number already registered');
+      throw new Error(error.message);
+    }
+    
+    await sendEmail('admins@nacoss.edu.ng', 'New Reg', `User ${data.fullName}`);
+    return this.mapUser(inserted);
   }
 
   async getPendingUsers(): Promise<User[]> {
-      return this.request('GET', '/admin/users/pending');
+    const { data } = await supabase.from('users').select('*').eq('status', ApprovalStatus.PENDING);
+    return (data || []).map(this.mapUser);
   }
 
   async processRegistration(adminId: string, userId: string, approved: boolean, reason?: string): Promise<void> {
-      return this.request('POST', `/admin/users/${userId}/review`, { approved, reason });
+    const status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
+    await supabase.from('users').update({ status, rejection_reason: reason }).eq('id', userId);
+    
+    // Fetch user to get email/details
+    const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (user) {
+       await sendEmail(user.email || 'student', approved ? 'Approved' : 'Rejected', 'Status update');
+       this.logAudit(adminId, UserRole.ADMIN, approved ? 'approve_user' : 'reject_user', `User ${user.matric_no}`, userId);
+    }
   }
 
-  // --- Candidates ---
   async getCandidates(): Promise<Candidate[]> {
-      return this.request('GET', '/candidates');
+    const { data } = await supabase.from('candidates').select('*');
+    return (data || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      matricNo: c.matric_no,
+      department: c.department,
+      position: c.position,
+      manifesto: c.manifesto,
+      photoUrl: c.photo_url
+    }));
   }
 
   async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
-      return this.request('POST', '/admin/candidates', candidate);
+    const dbCand = {
+      name: candidate.name,
+      matric_no: candidate.matricNo,
+      department: candidate.department,
+      position: candidate.position,
+      manifesto: candidate.manifesto,
+      photo_url: candidate.photoUrl
+    };
+    const { data, error } = await supabase.from('candidates').insert(dbCand).select().single();
+    if (error) throw new Error(error.message);
+    
+    this.logAudit(adminId, UserRole.ADMIN, 'add_candidate', `Added ${candidate.name}`, data.id);
+    return { ...candidate, id: data.id };
   }
 
   async updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate> {
-      return this.request('PUT', `/admin/candidates/${candidate.id}`, candidate);
+    const { error } = await supabase.from('candidates').update({
+       name: candidate.name,
+       matric_no: candidate.matricNo,
+       department: candidate.department,
+       position: candidate.position,
+       manifesto: candidate.manifesto,
+       photo_url: candidate.photoUrl
+    }).eq('id', candidate.id);
+    
+    if(error) throw new Error(error.message);
+    return candidate;
   }
 
   async removeCandidate(adminId: string, candidateId: string): Promise<void> {
-      return this.request('DELETE', `/admin/candidates/${candidateId}`);
+    await supabase.from('candidates').delete().eq('id', candidateId);
   }
 
-  // --- Voting ---
   async castVote(studentId: string, candidateId: string, position: Position): Promise<Vote> {
-      return this.request('POST', '/votes', { studentId, candidateId, position });
+    const settings = await this.getElectionSettings();
+    if (!settings.isVotingEnabled) throw new Error('Voting is closed');
+
+    // Check existing vote
+    const { data: existing } = await supabase.from('votes')
+      .select('*').eq('student_id', studentId).eq('position', position).single();
+    if (existing) throw new Error('Already voted for this position');
+
+    const voteData = {
+      student_id: studentId,
+      candidate_id: candidateId,
+      position: position,
+      timestamp: Date.now()
+    };
+    
+    const { data, error } = await supabase.from('votes').insert(voteData).select().single();
+    if (error) throw new Error(error.message);
+    
+    return {
+      id: data.id,
+      studentId: data.student_id,
+      candidateId: data.candidate_id,
+      position: data.position,
+      timestamp: Number(data.timestamp)
+    };
   }
 
   async getMyVotes(studentId: string): Promise<Vote[]> {
-      return this.request('GET', '/votes/me');
+    const { data } = await supabase.from('votes').select('*').eq('student_id', studentId);
+    return (data || []).map((v: any) => ({
+      id: v.id,
+      studentId: v.student_id,
+      candidateId: v.candidate_id,
+      position: v.position,
+      timestamp: Number(v.timestamp)
+    }));
   }
 
   async getResults(): Promise<{candidateId: string, count: number}[]> {
-      return this.request('GET', '/votes/results');
+    const { data } = await supabase.from('votes').select('candidate_id');
+    const counts: Record<string, number> = {};
+    (data || []).forEach((v: any) => {
+      counts[v.candidate_id] = (counts[v.candidate_id] || 0) + 1;
+    });
+    return Object.entries(counts).map(([id, count]) => ({ candidateId: id, count }));
   }
 
-  // --- Analytics ---
   async getAuditLogs(adminId: string): Promise<AuditLog[]> {
-      return this.request('GET', '/admin/audit');
+    const { data } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
+    return (data || []).map((l: any) => ({
+      id: l.id,
+      actorId: l.actor_id,
+      actorRole: l.actor_role as UserRole,
+      actionType: l.action_type,
+      details: l.details,
+      timestamp: Number(l.timestamp)
+    }));
   }
 
   async getDepartmentStats(): Promise<{name: string, count: number}[]> {
-      return this.request('GET', '/stats/departments');
+     const { data } = await supabase.from('users').select('department');
+     const counts: Record<string, number> = {};
+     (data || []).forEach((u: any) => {
+         counts[u.department] = (counts[u.department] || 0) + 1;
+     });
+     return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }
+
+  private mapUser(u: any): User {
+    return {
+      id: u.id,
+      fullName: u.full_name,
+      matricNo: u.matric_no,
+      department: u.department,
+      role: u.role as UserRole,
+      status: u.status as ApprovalStatus,
+      passwordHash: u.password_hash,
+      idCardUrl: u.id_card_url,
+      createdAt: Number(u.created_at)
+    };
+  }
+
+  private async logAudit(actorId: string, role: UserRole, type: string, details: string, targetId?: string) {
+    await supabase.from('audit_logs').insert({
+      actor_id: actorId,
+      actor_role: role,
+      action_type: type,
+      details: details,
+      target_id: targetId,
+      timestamp: Date.now()
+    });
   }
 }
 
 // Export the selected database service
-export const db = USE_MOCK_DB ? new MockDB() : new ApiDB();
+export const db = USE_MOCK_DB ? new MockDB() : new SupabaseDB();
