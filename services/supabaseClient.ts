@@ -14,9 +14,27 @@ const getEnv = (key: string) => {
   return '';
 };
 
-// Use placeholders if env vars are missing to prevent "supabaseUrl is required" crash
-const envUrl = getEnv('SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL');
-const envKey = getEnv('SUPABASE_ANON_KEY') || getEnv('REACT_APP_SUPABASE_ANON_KEY');
+// Raw values
+const rawUrl = getEnv('SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL');
+const rawKey = getEnv('SUPABASE_ANON_KEY') || getEnv('REACT_APP_SUPABASE_ANON_KEY');
+
+// Helper to sanitize inputs (remove spaces, ensure https)
+const sanitizeUrl = (url: string) => {
+    if (!url) return '';
+    let cleaned = url.trim();
+    // Fix common copy-paste issue where URL doesn't start with https
+    if (!cleaned.startsWith('http')) {
+        cleaned = `https://${cleaned}`;
+    }
+    // Remove trailing slash if present
+    if (cleaned.endsWith('/')) {
+        cleaned = cleaned.slice(0, -1);
+    }
+    return cleaned;
+};
+
+const envUrl = sanitizeUrl(rawUrl);
+const envKey = rawKey ? rawKey.trim() : '';
 
 // Determine if we are using real credentials
 export const isSupabaseConfigured = () => {
@@ -27,7 +45,9 @@ const supabaseUrl = envUrl || 'https://placeholder.supabase.co';
 const supabaseAnonKey = envKey || 'placeholder-key';
 
 if (!isSupabaseConfigured()) {
-  console.warn("Supabase credentials missing. App will default to Demo Mode (MockDB). Set SUPABASE_URL and SUPABASE_ANON_KEY to enable Production Mode.");
+  console.warn("Supabase credentials missing or invalid. App will default to Demo Mode (MockDB). Set SUPABASE_URL and SUPABASE_ANON_KEY to enable Production Mode.");
+} else {
+  console.log("Supabase Client initialized with URL:", supabaseUrl);
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
