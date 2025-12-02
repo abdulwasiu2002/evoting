@@ -181,26 +181,31 @@ class MockDB implements IDatabaseService {
   }
 
   private init() {
-    if (!localStorage.getItem(USERS_KEY)) {
-      localStorage.setItem(USERS_KEY, JSON.stringify([seedAdmin]));
-    }
-    if (!localStorage.getItem(POSITIONS_KEY)) {
-      localStorage.setItem(POSITIONS_KEY, JSON.stringify(seedPositions));
-    }
-    if (!localStorage.getItem(DEPARTMENTS_KEY)) {
-      localStorage.setItem(DEPARTMENTS_KEY, JSON.stringify(seedDepartments));
-    }
-    if (!localStorage.getItem(CANDIDATES_KEY)) {
-      localStorage.setItem(CANDIDATES_KEY, JSON.stringify(seedCandidates));
-    }
-    if (!localStorage.getItem(VOTES_KEY)) {
-      localStorage.setItem(VOTES_KEY, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(AUDIT_KEY)) {
-      localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(SETTINGS_KEY)) {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
+    // Only init if keys are missing
+    try {
+      if (!localStorage.getItem(USERS_KEY)) {
+        localStorage.setItem(USERS_KEY, JSON.stringify([seedAdmin]));
+      }
+      if (!localStorage.getItem(POSITIONS_KEY)) {
+        localStorage.setItem(POSITIONS_KEY, JSON.stringify(seedPositions));
+      }
+      if (!localStorage.getItem(DEPARTMENTS_KEY)) {
+        localStorage.setItem(DEPARTMENTS_KEY, JSON.stringify(seedDepartments));
+      }
+      if (!localStorage.getItem(CANDIDATES_KEY)) {
+        localStorage.setItem(CANDIDATES_KEY, JSON.stringify(seedCandidates));
+      }
+      if (!localStorage.getItem(VOTES_KEY)) {
+        localStorage.setItem(VOTES_KEY, JSON.stringify([]));
+      }
+      if (!localStorage.getItem(AUDIT_KEY)) {
+        localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
+      }
+      if (!localStorage.getItem(SETTINGS_KEY)) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
+      }
+    } catch (e) {
+      console.warn("Could not initialize local storage (Quota exceeded?)", e);
     }
   }
 
@@ -210,7 +215,14 @@ class MockDB implements IDatabaseService {
   }
 
   private setItems<T>(key: string, items: T[]) {
-    localStorage.setItem(key, JSON.stringify(items));
+    try {
+      localStorage.setItem(key, JSON.stringify(items));
+    } catch (e: any) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+         throw new Error("Demo storage quota exceeded. Please clear some data or use smaller images.");
+      }
+      throw e;
+    }
   }
   
   private getItem<T>(key: string): T | null {
@@ -219,21 +231,36 @@ class MockDB implements IDatabaseService {
   }
 
   private setItem<T>(key: string, item: T) {
-    localStorage.setItem(key, JSON.stringify(item));
+    try {
+      localStorage.setItem(key, JSON.stringify(item));
+    } catch (e: any) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+         throw new Error("Demo storage quota exceeded.");
+      }
+      throw e;
+    }
   }
 
   private addAudit(actorId: string, role: UserRole, action: string, details: string, targetId?: string) {
-    const logs = this.getItems<AuditLog>(AUDIT_KEY);
-    logs.unshift({
-      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      actorId,
-      actorRole: role,
-      actionType: action,
-      details,
-      targetId,
-      timestamp: Date.now()
-    });
-    this.setItems(AUDIT_KEY, logs);
+    // Audit logs can be heavy, in demo mode we might trim them if quota is tight
+    try {
+        const logs = this.getItems<AuditLog>(AUDIT_KEY);
+        // Limit audit logs in mock mode to last 50 to save space
+        if (logs.length > 50) logs.pop();
+        
+        logs.unshift({
+            id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            actorId,
+            actorRole: role,
+            actionType: action,
+            details,
+            targetId,
+            timestamp: Date.now()
+        });
+        this.setItems(AUDIT_KEY, logs);
+    } catch (e) {
+        console.warn("Could not save audit log due to storage limits");
+    }
   }
 
   async getElectionSettings(): Promise<ElectionSettings> {
@@ -323,6 +350,8 @@ class MockDB implements IDatabaseService {
 
     users.push(newUser);
     this.setItems(USERS_KEY, users);
+    
+    // We try to audit, but don't fail registration if audit fails
     this.addAudit('system', UserRole.GUEST, 'registration_submitted', `User ${newUser.fullName} registered`, newUser.id);
     
     this.emit('user_update', newUser);
@@ -594,4 +623,3 @@ class ApiDB implements IDatabaseService {
 
 // Export the selected database service
 export const db = USE_MOCK_DB ? new MockDB() : new ApiDB();
-

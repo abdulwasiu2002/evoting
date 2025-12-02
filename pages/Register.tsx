@@ -34,19 +34,58 @@ export const Register: React.FC = () => {
     fetchDepts();
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Helper to compress image
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG at 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create object URL for preview
-      const url = URL.createObjectURL(file);
-      setPreview(url);
-      
-      // For mock purposes, we'll convert to base64 to store in localStorage
-      const reader = new FileReader();
-      reader.onloadend = () => {
-          setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Show loading state for image processing if needed
+        const compressedDataUrl = await compressImage(file);
+        setPreview(compressedDataUrl);
+      } catch (err) {
+        setError("Failed to process image. Please try another file.");
+      }
     }
   };
 
@@ -70,12 +109,17 @@ export const Register: React.FC = () => {
         matricNo: formData.matricNo,
         department: formData.department,
         passwordHash: formData.password,
-        idCardUrl: preview // Passing the Base64 string for mock storage
+        idCardUrl: preview 
       });
       alert('Registration submitted! Please wait for admin approval.');
       navigate('/login');
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      console.error(err);
+      if (err.message && err.message.includes('quota')) {
+        setError("Storage full: The image is too large for the demo database. We tried to compress it but it's still too big. Please use a smaller image.");
+      } else {
+        setError(err.message || 'Registration failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -160,7 +204,7 @@ export const Register: React.FC = () => {
                     </label>
                     <p className="pl-1">or drag and drop</p>
                     </div>
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                    <p className="text-xs text-gray-500">PNG, JPG up to 5MB (Will be compressed)</p>
                    </>
                 ) : (
                     <div className="relative">
@@ -172,7 +216,7 @@ export const Register: React.FC = () => {
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-                        <p className="text-xs text-green-600 mt-2 font-medium">Image loaded successfully</p>
+                        <p className="text-xs text-green-600 mt-2 font-medium">Image loaded & compressed</p>
                     </div>
                 )}
               </div>
