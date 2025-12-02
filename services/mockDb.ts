@@ -464,16 +464,21 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async getElectionSettings(): Promise<ElectionSettings> {
-    const { data, error } = await supabase.from('settings').select('*').single();
-    if (error) {
-      // Return default if not found
+    try {
+      const { data, error } = await supabase.from('settings').select('*').single();
+      if (error) {
+        // Return default if not found
+        return defaultSettings;
+      }
+      return {
+        startDate: data.start_date,
+        endDate: data.end_date,
+        isVotingEnabled: data.is_voting_enabled
+      };
+    } catch (e) {
+      console.error("Connection Error:", e);
       return defaultSettings;
     }
-    return {
-      startDate: data.start_date,
-      endDate: data.end_date,
-      isVotingEnabled: data.is_voting_enabled
-    };
   }
 
   async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {
@@ -521,21 +526,44 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async login(matricNo: string, password: string): Promise<User> {
-    // Note: In real production, use supabase.auth.signInWithPassword.
-    // Here we query the users table to match the mock logic structure.
-    const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
-    
-    if (error || !data) throw new Error('Invalid credentials');
-    
-    // Check password (plain text for this demo - Use hashing in real app)
-    if (data.password_hash !== password) throw new Error('Invalid credentials');
+    try {
+      const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
+      
+      // AUTO-SEED ADMIN LOGIC: 
+      // If user tries to login as 'admin'/'admin123' and it doesn't exist, create it.
+      if ((error || !data) && matricNo === 'admin' && password === 'admin123') {
+          console.log("Attempting to auto-seed admin...");
+          const { data: existingAdmins } = await supabase.from('users').select('id').eq('role', 'admin');
+          if (!existingAdmins || existingAdmins.length === 0) {
+              const { data: newAdmin, error: createError } = await supabase.from('users').insert({
+                full_name: 'NACOSS Administrator',
+                matric_no: 'admin',
+                department: 'Computer Science',
+                role: 'admin',
+                status: 'approved',
+                password_hash: 'admin123',
+                created_at: Date.now()
+              }).select().single();
+              
+              if (!createError && newAdmin) {
+                  return this.mapUser(newAdmin);
+              }
+          }
+      }
 
-    if (data.role === UserRole.STUDENT && data.status !== ApprovalStatus.APPROVED) {
-      if (data.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${data.rejection_reason}`);
-      throw new Error('Account pending approval');
+      if (error || !data) throw new Error('Invalid credentials');
+      
+      if (data.password_hash !== password) throw new Error('Invalid credentials');
+
+      if (data.role === UserRole.STUDENT && data.status !== ApprovalStatus.APPROVED) {
+        if (data.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${data.rejection_reason}`);
+        throw new Error('Account pending approval');
+      }
+
+      return this.mapUser(data);
+    } catch (e: any) {
+        throw new Error(e.message || 'Connection failed');
     }
-
-    return this.mapUser(data);
   }
 
   async register(data: Omit<User, 'id' | 'role' | 'status' | 'createdAt'>): Promise<User> {
