@@ -14,11 +14,12 @@ const getEnv = (key: string) => {
   return '';
 };
 
-const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL') || '';
-const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || getEnv('REACT_APP_SUPABASE_ANON_KEY') || '';
+// Use placeholders if env vars are missing to prevent "supabaseUrl is required" crash
+const supabaseUrl = getEnv('SUPABASE_URL') || getEnv('REACT_APP_SUPABASE_URL') || 'https://placeholder.supabase.co';
+const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || getEnv('REACT_APP_SUPABASE_ANON_KEY') || 'placeholder-key';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase credentials missing. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your environment variables.");
+if (supabaseUrl === 'https://placeholder.supabase.co') {
+  console.warn("Supabase credentials missing. Using placeholder to prevent crash. Please set SUPABASE_URL and SUPABASE_ANON_KEY.");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
