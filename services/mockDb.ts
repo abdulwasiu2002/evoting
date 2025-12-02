@@ -4,8 +4,8 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // --- CONFIGURATION ---
 // Automatically determine mode:
-// If Supabase keys are present -> Production Mode (False)
-// If keys are missing -> Demo Mode (True)
+// If Supabase is properly configured -> Production Mode (False)
+// If keys are missing or placeholder -> Demo Mode (True)
 const USE_MOCK_DB = !isSupabaseConfigured(); 
 
 // ---------------------
@@ -130,7 +130,7 @@ class MockDB implements IDatabaseService {
 
   constructor() {
     this.init();
-    console.log("MockDB Initialized (Demo Mode)");
+    console.log("MockDB Initialized (Demo Mode - LocalStorage)");
     
     // Listen for storage events to support multi-tab real-time updates
     window.addEventListener('storage', (event) => {
@@ -467,7 +467,6 @@ class SupabaseDB implements IDatabaseService {
     try {
       const { data, error } = await supabase.from('settings').select('*').single();
       if (error) {
-        // Return default if not found
         return defaultSettings;
       }
       return {
@@ -494,9 +493,14 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async getDepartments(): Promise<string[]> {
-    const { data, error } = await supabase.from('departments').select('name');
-    if (error) return [];
-    return data.map((d: any) => d.name);
+    try {
+        const { data, error } = await supabase.from('departments').select('name');
+        if (error || !data) return [];
+        return data.map((d: any) => d.name);
+    } catch (e) {
+        console.warn("Using fallback departments due to DB error", e);
+        return seedDepartments;
+    }
   }
 
   async addDepartment(adminId: string, name: string): Promise<string> {
@@ -532,28 +536,29 @@ class SupabaseDB implements IDatabaseService {
       // AUTO-SEED ADMIN LOGIC: 
       // If user tries to login as 'admin'/'admin123' and it doesn't exist, create it.
       if ((error || !data) && matricNo === 'admin' && password === 'admin123') {
-          console.log("Attempting to auto-seed admin...");
-          const { data: existingAdmins } = await supabase.from('users').select('id').eq('role', 'admin');
-          if (!existingAdmins || existingAdmins.length === 0) {
-              const { data: newAdmin, error: createError } = await supabase.from('users').insert({
-                full_name: 'NACOSS Administrator',
-                matric_no: 'admin',
-                department: 'Computer Science',
-                role: 'admin',
-                status: 'approved',
-                password_hash: 'admin123',
-                created_at: Date.now()
-              }).select().single();
-              
-              if (!createError && newAdmin) {
-                  return this.mapUser(newAdmin);
-              }
+          console.log("Admin account not found. Attempting to create default admin...");
+          
+          const { data: newAdmin, error: createError } = await supabase.from('users').insert({
+            full_name: 'NACOSS Administrator',
+            matric_no: 'admin',
+            department: 'Computer Science',
+            role: 'admin',
+            status: 'approved',
+            password_hash: 'admin123',
+            created_at: Date.now()
+          }).select().single();
+          
+          if (newAdmin) {
+              console.log("Admin created successfully.");
+              return this.mapUser(newAdmin);
+          } else {
+              console.error("Failed to auto-seed admin:", createError);
           }
       }
 
-      if (error || !data) throw new Error('Invalid credentials');
+      if (error || !data) throw new Error('Invalid credentials (User not found)');
       
-      if (data.password_hash !== password) throw new Error('Invalid credentials');
+      if (data.password_hash !== password) throw new Error('Invalid credentials (Wrong password)');
 
       if (data.role === UserRole.STUDENT && data.status !== ApprovalStatus.APPROVED) {
         if (data.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${data.rejection_reason}`);
@@ -562,6 +567,7 @@ class SupabaseDB implements IDatabaseService {
 
       return this.mapUser(data);
     } catch (e: any) {
+        console.error("Login Error:", e);
         throw new Error(e.message || 'Connection failed');
     }
   }
