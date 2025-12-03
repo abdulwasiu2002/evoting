@@ -29,6 +29,7 @@ export const AdminDashboard: React.FC = () => {
   const [isEditingCandidate, setIsEditingCandidate] = useState(false);
   const [candidateForm, setCandidateForm] = useState<Partial<Candidate>>({});
   const [candidatePhotoPreview, setCandidatePhotoPreview] = useState<string | null>(null);
+  const [viewingCandidate, setViewingCandidate] = useState<Candidate | null>(null);
 
   // Position Management State
   const [newPosition, setNewPosition] = useState('');
@@ -315,23 +316,32 @@ export const AdminDashboard: React.FC = () => {
         doc.setFillColor(16, 185, 129); // Emerald-500
         doc.rect(0, 0, pageWidth, 40, 'F');
         
-        // Logo (Simple Computer/Chip Icon via Drawing)
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(14, 10, 20, 20, 2, 2, 'F'); // Icon bg
-        doc.setFillColor(16, 185, 129);
-        doc.rect(18, 14, 12, 10, 'F'); // Screen
-        doc.rect(19, 25, 10, 2, 'F'); // Keyboard/Base
+        // Try to load NACOSS Logo
+        try {
+            const logoUrl = "https://nacos.org.ng/images/NNL.png";
+            // Check if we can fetch it (CORS might block in some browsers/env)
+            // For PDF generation in browser, we often need Base64 or a proxied image.
+            // We'll try adding the image directly; if it fails, fallback to drawing.
+            doc.addImage(logoUrl, 'PNG', 14, 5, 30, 30, undefined, 'FAST');
+        } catch (e) {
+            // Fallback Logo (Computer/Chip Icon)
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(14, 10, 20, 20, 2, 2, 'F'); 
+            doc.setFillColor(16, 185, 129);
+            doc.rect(18, 14, 12, 10, 'F');
+            doc.rect(19, 25, 10, 2, 'F'); 
+        }
 
         // Title
         doc.setFontSize(22);
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.text("NACOSS", 40, 20);
+        doc.text("NACOSS", 50, 20);
         
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text("Nigeria Association of Computer Science Students", 40, 26);
-        doc.text("Official Election Report", 40, 31);
+        doc.text("Nigeria Association of Computer Science Students", 50, 26);
+        doc.text("Official Election Report", 50, 31);
         
         // Date
         doc.setFontSize(10);
@@ -660,6 +670,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex space-x-2">
+                    <Button size="sm" variant="secondary" onClick={() => setViewingCandidate(candidate)}>View Profile</Button>
                     <Button size="sm" variant="outline" onClick={() => openEditCandidate(candidate)}>Edit</Button>
                     <Button size="sm" variant="danger" onClick={() => handleDeleteCandidate(candidate.id)}>Delete</Button>
                   </div>
@@ -905,6 +916,58 @@ export const AdminDashboard: React.FC = () => {
                 </div>
             </div>
         </div>
+      )}
+
+      {/* View Candidate Profile Modal */}
+      {viewingCandidate && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+               <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                   <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setViewingCandidate(null)}></div>
+                   <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
+                       <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Candidate Profile</h3>
+                            <div className="flex flex-col md:flex-row gap-6">
+                                {/* Images */}
+                                <div className="md:w-1/2 space-y-4">
+                                    <div className="border p-2 rounded">
+                                        <p className="text-xs text-gray-500 mb-1">Passport Photo</p>
+                                        <img src={viewingCandidate.photoUrl} className="h-48 mx-auto object-cover" />
+                                    </div>
+                                    {viewingCandidate.resultUrl ? (
+                                        <div className="border p-2 rounded">
+                                            <p className="text-xs text-gray-500 mb-1">Result Document</p>
+                                            <img src={viewingCandidate.resultUrl} className="h-64 mx-auto object-contain" />
+                                        </div>
+                                    ) : (
+                                        <div className="border p-4 rounded bg-gray-50 text-center text-gray-400 italic">
+                                            No result document available
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Details */}
+                                <div className="md:w-1/2 space-y-3">
+                                    <div className="bg-emerald-50 p-4 rounded border border-emerald-100">
+                                        <p className="text-sm text-emerald-800 font-bold">Position</p>
+                                        <p className="text-2xl font-bold text-emerald-900">{viewingCandidate.position}</p>
+                                    </div>
+                                    <p><strong>Name:</strong> {viewingCandidate.name}</p>
+                                    <p><strong>Matric:</strong> {viewingCandidate.matricNo}</p>
+                                    <p><strong>Department:</strong> {viewingCandidate.department}</p>
+                                    {viewingCandidate.level && <p><strong>Level:</strong> {viewingCandidate.level}</p>}
+                                    {viewingCandidate.cgpa && <p><strong>CGPA:</strong> {viewingCandidate.cgpa}</p>}
+                                    <div>
+                                        <strong>Manifesto:</strong>
+                                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1 max-h-40 overflow-y-auto">{viewingCandidate.manifesto}</p>
+                                    </div>
+                                </div>
+                            </div>
+                       </div>
+                       <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end">
+                            <Button variant="ghost" onClick={() => setViewingCandidate(null)}>Close</Button>
+                       </div>
+                   </div>
+               </div>
+          </div>
       )}
 
       {/* User Verification Modal */}

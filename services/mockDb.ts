@@ -451,14 +451,17 @@ class MockDB implements IDatabaseService {
     this.setItems(ASPIRANTS_KEY, aspirants);
 
     if (approved) {
-        // 1. Promote to Candidate
+        // 1. Promote to Candidate (Transfer details)
         await this.addCandidate(adminId, {
             name: aspirant.fullName,
             matricNo: aspirant.matricNo,
             department: aspirant.department,
             position: aspirant.position,
             manifesto: aspirant.manifesto,
-            photoUrl: aspirant.passportUrl
+            photoUrl: aspirant.passportUrl,
+            level: aspirant.level,
+            cgpa: aspirant.cgpa,
+            resultUrl: aspirant.resultUrl
         });
 
         // 2. Approve User Account (so they can log in)
@@ -884,14 +887,17 @@ class SupabaseDB implements IDatabaseService {
       if (error) throw new Error(error.message);
 
       if (approved && aspirant) {
-           // 1. Promote to Candidate
+           // 1. Promote to Candidate (Transfer Details)
            await this.addCandidate(adminId, {
             name: aspirant.full_name,
             matricNo: aspirant.matric_no,
             department: aspirant.department,
             position: aspirant.position,
             manifesto: aspirant.manifesto,
-            photoUrl: aspirant.passport_url
+            photoUrl: aspirant.passport_url,
+            level: aspirant.level,
+            cgpa: aspirant.cgpa,
+            resultUrl: aspirant.result_url
            });
 
            // 2. Approve User Account for Login (Important!)
@@ -932,7 +938,10 @@ class SupabaseDB implements IDatabaseService {
       department: c.department,
       position: c.position,
       manifesto: c.manifesto,
-      photoUrl: c.photo_url
+      photoUrl: c.photo_url,
+      level: c.level,
+      cgpa: c.cgpa,
+      resultUrl: c.result_url
     }));
   }
 
@@ -943,10 +952,18 @@ class SupabaseDB implements IDatabaseService {
       department: candidate.department,
       position: candidate.position,
       manifesto: candidate.manifesto,
-      photo_url: candidate.photoUrl
+      photo_url: candidate.photoUrl,
+      level: candidate.level,
+      cgpa: candidate.cgpa,
+      result_url: candidate.resultUrl
     };
     const { data, error } = await supabase.from('candidates').insert(dbCand).select().single();
-    if (error) throw new Error(error.message);
+    if (error) {
+        if (error.message?.includes('column "level" of relation "candidates" does not exist')) {
+            throw new Error('Database Error: Missing "level", "cgpa" or "result_url" in candidates table. Please run the SQL migration script.');
+        }
+        throw new Error(error.message);
+    }
     
     this.logAudit(adminId, UserRole.ADMIN, 'add_candidate', `Added ${candidate.name}`, data.id);
     return { ...candidate, id: data.id };
@@ -960,6 +977,7 @@ class SupabaseDB implements IDatabaseService {
        position: candidate.position,
        manifesto: candidate.manifesto,
        photo_url: candidate.photoUrl
+       // Note: Typically we don't allow editing CGPA/Result here, but could be added
     }).eq('id', candidate.id);
     
     if(error) throw new Error(error.message);

@@ -36,6 +36,10 @@ export interface Candidate {
   position: Position;
   manifesto: string;
   photoUrl: string;
+  // Extra fields from Aspirant
+  level?: string;
+  cgpa?: string;
+  resultUrl?: string;
 }
 
 export interface Aspirant {
