@@ -515,6 +515,7 @@ class MockDB implements IDatabaseService {
       byLevel: {name: string, count: number}[],
       byDepartment: {name: string, count: number}[]
   }> {
+      await delay(300);
       const users = this.getItems<User>(USERS_KEY);
       const votes = this.getItems<Vote>(VOTES_KEY);
       // Get unique students who voted
