@@ -309,50 +309,92 @@ export const AdminDashboard: React.FC = () => {
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         
-        // Header
-        doc.setFontSize(18);
-        doc.text("NACOSS E-Voting Election Report", pageWidth / 2, 20, { align: 'center' });
+        // --- 1. Header & Branding (Green Background) ---
+        doc.setFillColor(16, 185, 129); // Emerald-500
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        // Logo (Simple Computer/Chip Icon via Drawing)
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(14, 10, 20, 20, 2, 2, 'F'); // Icon bg
+        doc.setFillColor(16, 185, 129);
+        doc.rect(18, 14, 12, 10, 'F'); // Screen
+        doc.rect(19, 25, 10, 2, 'F'); // Keyboard/Base
+
+        // Title
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.text("NACOSS", 40, 20);
         
         doc.setFontSize(10);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+        doc.setFont("helvetica", "normal");
+        doc.text("Nigeria Association of Computer Science Students", 40, 26);
+        doc.text("Official Election Report", 40, 31);
         
-        // Summary Stats
+        // Date
+        doc.setFontSize(10);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 31, { align: 'right' });
+
+        // --- 2. Executive Summary ---
+        doc.setTextColor(30, 41, 59); // Slate-800
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Executive Summary", 14, 55);
+
+        // Stats Box
         const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
         const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
-        
-        doc.setFontSize(12);
-        doc.text(`Total Registered Students: ${totalRegistered}`, 14, 45);
-        doc.text(`Total Votes Cast: ${totalVotes}`, 14, 52);
+        const turnout = totalRegistered > 0 ? Math.round((totalVotes / (totalRegistered * positions.length || 1)) * 100) : 0;
 
-        let finalY = 60;
+        doc.setFillColor(241, 245, 249); // Slate-100
+        doc.setDrawColor(203, 213, 225); // Slate-300
+        doc.roundedRect(14, 60, pageWidth - 28, 25, 2, 2, 'FD');
 
-        // 1. Election Results Table
+        doc.setFontSize(10);
+        doc.text(`Total Registered Students`, 20, 70);
+        doc.text(`Total Votes Cast`, 80, 70);
+        doc.text(`Voter Turnout`, 140, 70);
+
+        doc.setFontSize(16);
+        doc.setTextColor(16, 185, 129); // Emerald-600
+        doc.text(`${totalRegistered}`, 20, 80);
+        doc.text(`${totalVotes}`, 80, 80);
+        doc.text(`${turnout}%`, 140, 80);
+
+        let finalY = 95;
+
+        // --- Table Styling Configuration ---
+        const tableTheme = {
+            headStyles: { fillColor: [4, 120, 87] as any, textColor: 255, fontStyle: 'bold' as any }, // Emerald-700
+            alternateRowStyles: { fillColor: [236, 253, 245] as any }, // Emerald-50
+            bodyStyles: { textColor: 50 },
+            margin: { left: 14, right: 14 },
+        };
+
+        const runAutoTable = (d: any, options: any) => {
+            if (typeof d.autoTable === 'function') d.autoTable(options);
+            else if (typeof autoTable === 'function') autoTable(d, options);
+            else throw new Error("PDF Table plugin not loaded correctly.");
+        };
+
+        // --- 3. Election Results Table ---
+        doc.setTextColor(30, 41, 59);
         doc.setFontSize(14);
         doc.text("Election Results", 14, finalY);
         finalY += 5;
 
-        const resultColumns = ["Candidate", "Position", "Votes"];
         const resultRows: any[] = [];
         results.forEach(item => {
-            resultRows.push([item.name, item.position, item.votes]);
+            resultRows.push([item.position, item.name, item.votes]);
         });
 
-        // Use autoTable - try/catch method wrapper to handle different import styles
-        const runAutoTable = (d: any, options: any) => {
-            if (typeof d.autoTable === 'function') {
-                d.autoTable(options);
-            } else if (typeof autoTable === 'function') {
-                autoTable(d, options);
-            } else {
-                 throw new Error("PDF Table plugin not loaded correctly.");
-            }
-        };
-
         runAutoTable(doc, {
-            head: [resultColumns],
+            head: [["Position", "Candidate", "Votes"]],
             body: resultRows,
             startY: finalY,
+            ...tableTheme
         });
         
         finalY = (doc as any).lastAutoTable.finalY + 15;
@@ -360,8 +402,7 @@ export const AdminDashboard: React.FC = () => {
         // Fetch breakdown stats
         const breakdown = await db.getVoterBreakdown();
 
-        // 2. Voter Breakdown by Level
-        doc.setFontSize(14);
+        // --- 4. Turnout by Level ---
         doc.text("Voter Turnout by Level", 14, finalY);
         finalY += 5;
 
@@ -370,11 +411,17 @@ export const AdminDashboard: React.FC = () => {
             head: [['Level', 'Voters']],
             body: levelRows,
             startY: finalY,
+            ...tableTheme
         });
         finalY = (doc as any).lastAutoTable.finalY + 15;
 
-        // 3. Voter Breakdown by Department
-        doc.setFontSize(14);
+        // --- 5. Turnout by Department ---
+        // Check if we need a new page
+        if (finalY > pageHeight - 40) {
+            doc.addPage();
+            finalY = 20;
+        }
+
         doc.text("Voter Turnout by Department", 14, finalY);
         finalY += 5;
 
@@ -383,9 +430,19 @@ export const AdminDashboard: React.FC = () => {
             head: [['Department', 'Voters']],
             body: deptRows,
             startY: finalY,
+            ...tableTheme
         });
 
-        doc.save("election_report_full.pdf");
+        // Footer
+        const totalPages = (doc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Page ${i} of ${totalPages} - NACOSS E-Voting System`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        }
+
+        doc.save("NACOSS_Election_Report.pdf");
     } catch (error: any) {
         console.error("PDF Export Error:", error);
         alert(`Failed to generate PDF Report: ${error.message || 'Unknown error'}`);
