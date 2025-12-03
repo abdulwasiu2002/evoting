@@ -19,6 +19,7 @@ export const AdminDashboard: React.FC = () => {
   const [departmentStats, setDepartmentStats] = useState<{name: string, count: number}[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   
   // Real-time Activity Feed State
   const [liveActivity, setLiveActivity] = useState<{id: string, message: string, time: string}[]>([]);
@@ -304,74 +305,93 @@ export const AdminDashboard: React.FC = () => {
 
   // --- Analytics & Export Functions ---
   const generatePDFReport = async () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.text("NACOSS E-Voting Election Report", pageWidth / 2, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
-    
-    // Summary Stats
-    const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
-    const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
-    
-    doc.setFontSize(12);
-    doc.text(`Total Registered Students: ${totalRegistered}`, 14, 45);
-    doc.text(`Total Votes Cast: ${totalVotes}`, 14, 52);
+    setIsGeneratingReport(true);
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Header
+        doc.setFontSize(18);
+        doc.text("NACOSS E-Voting Election Report", pageWidth / 2, 20, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+        
+        // Summary Stats
+        const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
+        const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
+        
+        doc.setFontSize(12);
+        doc.text(`Total Registered Students: ${totalRegistered}`, 14, 45);
+        doc.text(`Total Votes Cast: ${totalVotes}`, 14, 52);
 
-    let finalY = 60;
+        let finalY = 60;
 
-    // 1. Election Results Table
-    doc.setFontSize(14);
-    doc.text("Election Results", 14, finalY);
-    finalY += 5;
+        // 1. Election Results Table
+        doc.setFontSize(14);
+        doc.text("Election Results", 14, finalY);
+        finalY += 5;
 
-    const resultColumns = ["Candidate", "Position", "Votes"];
-    const resultRows: any[] = [];
-    results.forEach(item => {
-        resultRows.push([item.name, item.position, item.votes]);
-    });
+        const resultColumns = ["Candidate", "Position", "Votes"];
+        const resultRows: any[] = [];
+        results.forEach(item => {
+            resultRows.push([item.name, item.position, item.votes]);
+        });
 
-    (doc as any).autoTable({
-        head: [resultColumns],
-        body: resultRows,
-        startY: finalY,
-    });
-    
-    finalY = (doc as any).lastAutoTable.finalY + 15;
+        // Use autoTable - try/catch method wrapper to handle different import styles
+        const runAutoTable = (d: any, options: any) => {
+            if (typeof d.autoTable === 'function') {
+                d.autoTable(options);
+            } else if (typeof autoTable === 'function') {
+                autoTable(d, options);
+            } else {
+                 throw new Error("PDF Table plugin not loaded correctly.");
+            }
+        };
 
-    // Fetch breakdown stats
-    const breakdown = await db.getVoterBreakdown();
+        runAutoTable(doc, {
+            head: [resultColumns],
+            body: resultRows,
+            startY: finalY,
+        });
+        
+        finalY = (doc as any).lastAutoTable.finalY + 15;
 
-    // 2. Voter Breakdown by Level
-    doc.setFontSize(14);
-    doc.text("Voter Turnout by Level", 14, finalY);
-    finalY += 5;
+        // Fetch breakdown stats
+        const breakdown = await db.getVoterBreakdown();
 
-    const levelRows = breakdown.byLevel.map(l => [l.name, l.count]);
-    (doc as any).autoTable({
-        head: [['Level', 'Voters']],
-        body: levelRows,
-        startY: finalY,
-    });
-    finalY = (doc as any).lastAutoTable.finalY + 15;
+        // 2. Voter Breakdown by Level
+        doc.setFontSize(14);
+        doc.text("Voter Turnout by Level", 14, finalY);
+        finalY += 5;
 
-    // 3. Voter Breakdown by Department
-    doc.setFontSize(14);
-    doc.text("Voter Turnout by Department", 14, finalY);
-    finalY += 5;
+        const levelRows = breakdown.byLevel.map(l => [l.name, l.count]);
+        runAutoTable(doc, {
+            head: [['Level', 'Voters']],
+            body: levelRows,
+            startY: finalY,
+        });
+        finalY = (doc as any).lastAutoTable.finalY + 15;
 
-    const deptRows = breakdown.byDepartment.map(d => [d.name, d.count]);
-    (doc as any).autoTable({
-        head: [['Department', 'Voters']],
-        body: deptRows,
-        startY: finalY,
-    });
+        // 3. Voter Breakdown by Department
+        doc.setFontSize(14);
+        doc.text("Voter Turnout by Department", 14, finalY);
+        finalY += 5;
 
-    doc.save("election_report_full.pdf");
+        const deptRows = breakdown.byDepartment.map(d => [d.name, d.count]);
+        runAutoTable(doc, {
+            head: [['Department', 'Voters']],
+            body: deptRows,
+            startY: finalY,
+        });
+
+        doc.save("election_report_full.pdf");
+    } catch (error: any) {
+        console.error("PDF Export Error:", error);
+        alert(`Failed to generate PDF Report: ${error.message || 'Unknown error'}`);
+    } finally {
+        setIsGeneratingReport(false);
+    }
   };
 
   const exportExcelCSV = () => {
@@ -540,8 +560,8 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="flex gap-4">
-                  <Button onClick={generatePDFReport} className="bg-red-600 hover:bg-red-700">
-                      Download Detailed Report (PDF)
+                  <Button onClick={generatePDFReport} className="bg-red-600 hover:bg-red-700" isLoading={isGeneratingReport}>
+                      {isGeneratingReport ? 'Generating Report...' : 'Download Detailed Report (PDF)'}
                   </Button>
                   <Button variant="outline" onClick={exportExcelCSV}>
                       Export Raw Data (CSV)
