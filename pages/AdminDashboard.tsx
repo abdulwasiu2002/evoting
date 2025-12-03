@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'aspirants' | 'results' | 'analytics' | 'candidates' | 'positions' | 'departments' | 'audit' | 'settings'>('pending');
@@ -45,6 +46,10 @@ export const AdminDashboard: React.FC = () => {
       isVotingEnabled: false
   });
 
+  // DB Connection State
+  const [dbMode, setDbMode] = useState(isSupabaseConfigured() ? 'remote' : 'local');
+  const [apiUrl, setApiUrl] = useState('');
+
   const fetchPending = async () => {
     const users = await db.getPendingUsers();
     setPendingUsers(users);
@@ -52,8 +57,6 @@ export const AdminDashboard: React.FC = () => {
 
   const fetchAspirants = async () => {
     const asps = await db.getAspirants();
-    // Filter to only show PENDING or REJECTED to keep list clean? Or just all. 
-    // Let's show all pending first.
     setAspirants(asps.filter(a => a.status === 'pending'));
   };
 
@@ -169,7 +172,8 @@ export const AdminDashboard: React.FC = () => {
     if (!approve && !reason) return; 
 
     await db.processRegistration('admin-1', userId, approve, reason || undefined);
-    setVerifyingUser(null); 
+    setVerifyingUser(null);
+    fetchPending(); 
   };
 
   const handleAspirantApproval = async (aspirantId: string, approve: boolean) => {
@@ -300,12 +304,46 @@ export const AdminDashboard: React.FC = () => {
 
   // --- Analytics & Export Functions ---
   const generatePDFReport = () => {
-     // ... same as before
+    const doc = new jsPDF();
+    doc.text("NACOSS E-Voting Election Report", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    
+    // Add Stats
+    const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
+    const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
+    doc.text(`Total Registered Students: ${totalRegistered}`, 14, 40);
+    doc.text(`Total Votes Cast: ${totalVotes}`, 14, 46);
+
+    // Results Table
+    const tableColumn = ["Candidate", "Position", "Votes"];
+    const tableRows: any[] = [];
+    results.forEach(item => {
+        tableRows.push([item.name, item.position, item.votes]);
+    });
+
+    (doc as any).autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 55,
+    });
+
+    doc.save("election_report.pdf");
   };
+
   const exportExcelCSV = () => {
-    // ... same as before
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Candidate,Position,Votes\n";
+    results.forEach(row => {
+        csvContent += `${row.name},${row.position},${row.votes}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "election_results.csv");
+    document.body.appendChild(link);
+    link.click();
   };
-  // Simplified for brevity in this update block, assume existing implementation remains
 
   const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
   const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
@@ -393,31 +431,403 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ... (Existing Results, Analytics, Candidates, Positions, Departments, Audit, Settings Tabs remain same - assume rendered here) ... */}
-      
-      {activeTab === 'results' && results.length > -1 && <div className="p-6 text-gray-500 bg-white rounded shadow">View results in 'Results' tab logic (collapsed for brevity)</div>}
+      {activeTab === 'results' && (
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="lg:w-3/4 bg-white p-6 rounded shadow">
+                 <div className="bg-emerald-50 border border-emerald-100 rounded p-4 mb-6 flex justify-between items-center">
+                    <div>
+                        <p className="text-sm text-emerald-800 uppercase font-bold tracking-wide">Total Votes Cast</p>
+                        <p className="text-4xl font-extrabold text-emerald-900">{totalVotes}</p>
+                    </div>
+                    <div className="h-10 w-10 bg-emerald-200 rounded-full flex items-center justify-center text-emerald-700">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                    </div>
+                 </div>
+
+                 <h2 className="text-lg font-medium text-gray-900 mb-4">Live Vote Count</h2>
+                 <div className="h-96 min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <BarChart data={results} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis allowDecimals={false} />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="votes" fill="#10B981" name="Votes" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                 </div>
+            </div>
+            
+            <div className="lg:w-1/4 bg-white p-6 rounded shadow h-fit">
+                <h3 className="text-md font-bold text-gray-800 mb-4 flex items-center">
+                    <span className="h-2 w-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
+                    Live Activity Feed
+                </h3>
+                <ul className="space-y-3 max-h-[500px] overflow-y-auto">
+                    {liveActivity.map((log) => (
+                        <li key={log.id} className="text-xs border-b border-gray-100 pb-2">
+                            <span className="text-gray-400 block mb-1">{log.time}</span>
+                            <span className="text-gray-700">{log.message}</span>
+                        </li>
+                    ))}
+                    {liveActivity.length === 0 && <li className="text-xs text-gray-400 italic">Waiting for new votes...</li>}
+                </ul>
+            </div>
+          </div>
+      )}
+
+      {activeTab === 'analytics' && (
+          <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">
+                      <p className="text-sm text-gray-500 uppercase font-bold">Total Registered Students</p>
+                      <p className="text-3xl font-bold text-gray-800">{totalRegistered}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded shadow border-l-4 border-green-500">
+                      <p className="text-sm text-gray-500 uppercase font-bold">Total Votes Cast</p>
+                      <p className="text-3xl font-bold text-gray-800">{totalVotes}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded shadow border-l-4 border-purple-500">
+                      <p className="text-sm text-gray-500 uppercase font-bold">Voter Turnout</p>
+                      <p className="text-3xl font-bold text-gray-800">
+                          {totalRegistered > 0 ? Math.round((totalVotes / (totalRegistered * positions.length || 1)) * 100) : 0}%
+                      </p>
+                  </div>
+              </div>
+
+              <div className="flex gap-4">
+                  <Button onClick={generatePDFReport} className="bg-red-600 hover:bg-red-700">
+                      Download Official Report (PDF)
+                  </Button>
+                  <Button variant="outline" onClick={exportExcelCSV}>
+                      Export Raw Data (CSV)
+                  </Button>
+              </div>
+
+              <div className="bg-white p-6 rounded shadow">
+                  <h3 className="text-lg font-bold mb-4">Registrations by Department</h3>
+                  <div className="h-80 min-w-0">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <BarChart data={departmentStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" allowDecimals={false} />
+                            <YAxis dataKey="name" type="category" width={150} />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="count" fill="#6366F1" name="Students" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'candidates' && (
+        <div>
+          <div className="flex justify-end mb-4">
+            <Button onClick={openAddCandidate}>+ Add New Candidate</Button>
+          </div>
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul className="divide-y divide-gray-200">
+              {candidates.map((candidate) => (
+                <li key={candidate.id} className="p-6 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <img className="h-12 w-12 rounded-full object-cover bg-gray-200" src={candidate.photoUrl} alt="" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-emerald-600">{candidate.name}</p>
+                      <p className="text-sm text-gray-500">{candidate.position} • {candidate.department}</p>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button size="sm" variant="outline" onClick={() => openEditCandidate(candidate)}>Edit</Button>
+                    <Button size="sm" variant="danger" onClick={() => handleDeleteCandidate(candidate.id)}>Delete</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'positions' && (
+        <div className="space-y-6">
+           <div className="bg-white p-6 rounded shadow">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Position</h3>
+              <form onSubmit={handleAddPosition} className="flex gap-4">
+                  <input 
+                    type="text" 
+                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 border p-2"
+                    placeholder="e.g. Director of Socials"
+                    value={newPosition}
+                    onChange={(e) => setNewPosition(e.target.value)}
+                  />
+                  <Button type="submit">Add Position</Button>
+              </form>
+           </div>
+           
+           <div className="bg-white shadow overflow-hidden sm:rounded-md">
+              <ul className="divide-y divide-gray-200">
+                  {positions.map(pos => (
+                      <li key={pos} className="p-4 flex justify-between items-center">
+                          <span className="text-gray-900 font-medium">{pos}</span>
+                          <Button size="sm" variant="danger" onClick={() => handleRemovePosition(pos)}>Remove</Button>
+                      </li>
+                  ))}
+              </ul>
+           </div>
+        </div>
+      )}
+
+      {activeTab === 'departments' && (
+        <div className="space-y-6">
+           <div className="bg-white p-6 rounded shadow">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Department</h3>
+              <form onSubmit={handleAddDepartment} className="flex gap-4">
+                  <input 
+                    type="text" 
+                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 border p-2"
+                    placeholder="e.g. Information Technology"
+                    value={newDepartment}
+                    onChange={(e) => setNewDepartment(e.target.value)}
+                  />
+                  <Button type="submit">Add Department</Button>
+              </form>
+           </div>
+           
+           <div className="bg-white shadow overflow-hidden sm:rounded-md">
+              <ul className="divide-y divide-gray-200">
+                  {departments.map(dept => (
+                      <li key={dept} className="p-4 flex justify-between items-center">
+                          <span className="text-gray-900 font-medium">{dept}</span>
+                          <Button size="sm" variant="danger" onClick={() => handleRemoveDepartment(dept)}>Remove</Button>
+                      </li>
+                  ))}
+              </ul>
+           </div>
+        </div>
+      )}
+
+      {activeTab === 'audit' && (
+        <div className="bg-white shadow overflow-hidden sm:rounded-md">
+           <table className="min-w-full divide-y divide-gray-200">
+               <thead className="bg-gray-50">
+                   <tr>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actor</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                   </tr>
+               </thead>
+               <tbody className="bg-white divide-y divide-gray-200">
+                   {logs.map(log => (
+                       <tr key={log.id}>
+                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                               {new Date(log.timestamp).toLocaleString()}
+                           </td>
+                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                               {log.actorId} <span className="text-xs text-gray-400">({log.actorRole})</span>
+                           </td>
+                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                               {log.actionType}
+                           </td>
+                           <td className="px-6 py-4 text-sm text-gray-500">
+                               {log.details}
+                           </td>
+                       </tr>
+                   ))}
+               </tbody>
+           </table>
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+          <div className="bg-white p-6 rounded shadow space-y-8">
+              <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Election Schedule</h3>
+                  <form onSubmit={handleSaveSettings} className="space-y-4 max-w-lg">
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                          <input 
+                              type="date" 
+                              required 
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                              value={settings.startDate}
+                              onChange={(e) => setSettings({...settings, startDate: e.target.value})}
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">End Date</label>
+                          <input 
+                              type="date" 
+                              required 
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                              value={settings.endDate}
+                              onChange={(e) => setSettings({...settings, endDate: e.target.value})}
+                          />
+                      </div>
+                      <div className="flex items-center">
+                          <input 
+                              id="voting-toggle"
+                              type="checkbox" 
+                              className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                              checked={settings.isVotingEnabled}
+                              onChange={(e) => setSettings({...settings, isVotingEnabled: e.target.checked})}
+                          />
+                          <label htmlFor="voting-toggle" className="ml-2 block text-sm text-gray-900 font-bold">
+                              Enable Voting System (Open Polls)
+                          </label>
+                      </div>
+                      <Button type="submit" isLoading={loading}>Save Settings</Button>
+                  </form>
+              </div>
+
+              <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Database Connection</h3>
+                  <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                       <p className="text-sm text-gray-600 mb-4">
+                           Configure where the data is stored.
+                           <br/>
+                           <span className="font-bold">Current Status:</span> {dbMode === 'local' ? 'Local Demo (Offline)' : 'Remote Server (Real API)'}
+                       </p>
+                       
+                       <div className="flex flex-col gap-4 max-w-lg">
+                           <div>
+                               <label className="block text-sm font-medium text-gray-700">Data Source</label>
+                               <select 
+                                   className="mt-1 block w-full border border-gray-300 rounded p-2"
+                                   value={dbMode}
+                                   onChange={(e) => setDbMode(e.target.value)}
+                               >
+                                   <option value="local">Local Demo (Offline)</option>
+                                   <option value="remote">Remote Server (Real API)</option>
+                               </select>
+                           </div>
+                           
+                           {dbMode === 'remote' && (
+                               <div>
+                                   <label className="block text-sm font-medium text-gray-700">Backend API URL</label>
+                                   <input 
+                                       type="url" 
+                                       placeholder="https://your-flask-app.herokuapp.com/api"
+                                       className="mt-1 block w-full border border-gray-300 rounded p-2"
+                                       value={apiUrl}
+                                       onChange={(e) => setApiUrl(e.target.value)}
+                                   />
+                                   <p className="text-xs text-gray-500 mt-1">Must be a valid https URL pointing to your deployed backend.</p>
+                               </div>
+                           )}
+                           
+                           <Button 
+                                variant="secondary" 
+                                onClick={() => {
+                                    alert("To switch modes permanently, please update the 'mockDb.ts' file configuration. This UI is for demonstration of the settings panel layout.");
+                                }}
+                            >
+                               Save & Test Connection
+                           </Button>
+                       </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Candidate Modal */}
+      {isCandidateModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setIsCandidateModalOpen(false)}></div>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                    <form onSubmit={handleSaveCandidate}>
+                        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">{isEditingCandidate ? 'Edit Candidate' : 'Add New Candidate'}</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.name} onChange={e => setCandidateForm({...candidateForm, name: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Matric No</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.matricNo} onChange={e => setCandidateForm({...candidateForm, matricNo: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Department</label>
+                                        <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={candidateForm.department} onChange={e => setCandidateForm({...candidateForm, department: e.target.value})}>
+                                            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Position</label>
+                                        <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={candidateForm.position} onChange={e => setCandidateForm({...candidateForm, position: e.target.value})}>
+                                            {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Manifesto</label>
+                                    <textarea required rows={3} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.manifesto} onChange={e => setCandidateForm({...candidateForm, manifesto: e.target.value})}></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Photo</label>
+                                    <div className="flex items-center space-x-4">
+                                        {candidatePhotoPreview && <img src={candidatePhotoPreview} className="h-16 w-16 rounded-full object-cover" />}
+                                        <input type="file" accept="image/*" onChange={handlePhotoFileChange} className="text-sm text-gray-500" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                            <Button type="submit" className="w-full sm:ml-3 sm:w-auto" isLoading={loading}>Save</Button>
+                            <Button type="button" variant="outline" className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto" onClick={() => setIsCandidateModalOpen(false)}>Cancel</Button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* User Verification Modal */}
       {verifyingUser && (
-        // ... Existing modal code ...
         <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setVerifyingUser(null)}></div>
                 <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
                     <div className="p-6">
-                        {/* Shortened for brevity - logic exists in previous implementation */}
                         <h3 className="text-xl font-bold mb-4">Verify Student</h3>
-                        <div className="flex gap-4">
-                           <div className="w-1/2"><img src={verifyingUser.idCardUrl} className="w-full rounded" /></div>
-                           <div className="w-1/2">
-                               <p className="font-bold">{verifyingUser.fullName}</p>
-                               <p className="text-gray-500">{verifyingUser.matricNo}</p>
-                               <div className="mt-4 flex gap-2">
-                                   <Button onClick={() => handleApproval(verifyingUser.id, true)}>Approve</Button>
-                                   <Button variant="danger" onClick={() => handleApproval(verifyingUser.id, false)}>Reject</Button>
+                        <div className="flex flex-col md:flex-row gap-6">
+                           <div className="md:w-1/2">
+                               {verifyingUser.idCardUrl ? 
+                                   <img src={verifyingUser.idCardUrl} className="w-full rounded shadow-sm border" alt="ID Card" /> 
+                                   : <div className="bg-gray-100 h-64 flex items-center justify-center">No Image</div>
+                               }
+                           </div>
+                           <div className="md:w-1/2 space-y-3">
+                               <div>
+                                   <p className="text-xs text-gray-500 uppercase">Full Name</p>
+                                   <p className="font-bold text-lg">{verifyingUser.fullName}</p>
+                               </div>
+                               <div>
+                                   <p className="text-xs text-gray-500 uppercase">Matric No</p>
+                                   <p className="font-mono bg-gray-100 p-1 rounded inline-block">{verifyingUser.matricNo}</p>
+                               </div>
+                               <div>
+                                   <p className="text-xs text-gray-500 uppercase">Department</p>
+                                   <p>{verifyingUser.department}</p>
+                               </div>
+                               <div className="mt-8 pt-4 border-t flex gap-3">
+                                   <Button className="flex-1" onClick={() => handleApproval(verifyingUser.id, true)}>
+                                       ✓ Approve Registration
+                                   </Button>
+                                   <Button variant="danger" className="flex-1" onClick={() => handleApproval(verifyingUser.id, false)}>
+                                       ✕ Reject
+                                   </Button>
                                </div>
                            </div>
                         </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 flex justify-end">
+                        <Button variant="ghost" onClick={() => setVerifyingUser(null)}>Close</Button>
                     </div>
                 </div>
             </div>
