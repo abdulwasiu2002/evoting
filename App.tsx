@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -6,6 +7,7 @@ import { Register } from './pages/Register';
 import { Login } from './pages/Login';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { AspirantRegistration } from './pages/AspirantRegistration';
 import { User, UserRole } from './types';
 
 function App() {
@@ -23,6 +25,7 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login onLogin={setUser} />} />
+          <Route path="/contest" element={<AspirantRegistration />} />
           
           <Route 
             path="/dashboard" 

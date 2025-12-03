@@ -1,4 +1,5 @@
-import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings } from '../types';
+
+import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings, Aspirant } from '../types';
 import { sendEmail } from './emailService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
@@ -18,6 +19,7 @@ const AUDIT_KEY = 'univote_audit';
 const POSITIONS_KEY = 'univote_positions';
 const DEPARTMENTS_KEY = 'univote_departments';
 const SETTINGS_KEY = 'univote_settings';
+const ASPIRANTS_KEY = 'univote_aspirants';
 
 // Initial Seed Data (Mock Mode)
 const seedAdmin: User = {
@@ -107,6 +109,11 @@ interface IDatabaseService {
   getPendingUsers(): Promise<User[]>;
   processRegistration(adminId: string, userId: string, approved: boolean, reason?: string): Promise<void>;
   
+  // Aspirants (New)
+  registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant>;
+  getAspirants(): Promise<Aspirant[]>;
+  processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
+
   // Voting
   getCandidates(): Promise<Candidate[]>;
   addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate>;
@@ -184,6 +191,9 @@ class MockDB implements IDatabaseService {
       }
       if (!localStorage.getItem(SETTINGS_KEY)) {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
+      }
+      if (!localStorage.getItem(ASPIRANTS_KEY)) {
+        localStorage.setItem(ASPIRANTS_KEY, JSON.stringify([]));
       }
     } catch (e) {
       console.warn("Could not initialize local storage (Quota exceeded?)", e);
@@ -371,6 +381,55 @@ class MockDB implements IDatabaseService {
     this.addAudit(adminId, UserRole.ADMIN, approved ? 'registration_approved' : 'registration_rejected', `User ${user.matricNo} processed`, userId);
     this.emit('user_update', user);
   }
+
+  // --- ASPIRANT METHODS ---
+  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant> {
+    await delay(800);
+    const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
+    if (aspirants.some(a => a.matricNo === data.matricNo)) throw new Error('You have already applied.');
+
+    const newAspirant: Aspirant = {
+        ...data,
+        id: `asp-${Date.now()}`,
+        status: ApprovalStatus.PENDING,
+        createdAt: Date.now()
+    };
+    aspirants.push(newAspirant);
+    this.setItems(ASPIRANTS_KEY, aspirants);
+    this.addAudit('system', UserRole.GUEST, 'aspirant_applied', `New aspirant: ${data.fullName}`, newAspirant.id);
+    return newAspirant;
+  }
+
+  async getAspirants(): Promise<Aspirant[]> {
+    return this.getItems<Aspirant>(ASPIRANTS_KEY);
+  }
+
+  async processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void> {
+    const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
+    const idx = aspirants.findIndex(a => a.id === aspirantId);
+    if (idx === -1) throw new Error("Aspirant not found");
+
+    const aspirant = aspirants[idx];
+    aspirant.status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
+    this.setItems(ASPIRANTS_KEY, aspirants);
+
+    if (approved) {
+        // Convert to Candidate
+        await this.addCandidate(adminId, {
+            name: aspirant.fullName,
+            matricNo: aspirant.matricNo,
+            department: aspirant.department,
+            position: aspirant.position,
+            manifesto: aspirant.manifesto,
+            photoUrl: aspirant.passportUrl
+        });
+        this.addAudit(adminId, UserRole.ADMIN, 'aspirant_approved', `Promoted ${aspirant.fullName} to Candidate`, aspirantId);
+    } else {
+        this.addAudit(adminId, UserRole.ADMIN, 'aspirant_rejected', `Rejected aspirant ${aspirant.fullName}`, aspirantId);
+    }
+  }
+  // ------------------------
+
 
   async getCandidates(): Promise<Candidate[]> {
     await delay(300);
@@ -666,6 +725,79 @@ class SupabaseDB implements IDatabaseService {
        this.logAudit(adminId, UserRole.ADMIN, approved ? 'approve_user' : 'reject_user', `User ${user.matric_no}`, userId);
     }
   }
+
+  // --- ASPIRANT METHODS (Supabase) ---
+  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant> {
+    const { data: existing } = await supabase.from('aspirants').select('*').eq('matric_no', data.matricNo).single();
+    if (existing) throw new Error("You have already applied.");
+
+    const payload = {
+        full_name: data.fullName,
+        matric_no: data.matricNo,
+        department: data.department,
+        level: data.level,
+        position: data.position,
+        cgpa: data.cgpa,
+        manifesto: data.manifesto,
+        passport_url: data.passportUrl,
+        result_url: data.resultUrl,
+        status: ApprovalStatus.PENDING,
+        created_at: Date.now()
+    };
+
+    const { data: inserted, error } = await supabase.from('aspirants').insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    return this.mapAspirant(inserted);
+  }
+
+  async getAspirants(): Promise<Aspirant[]> {
+      const { data, error } = await supabase.from('aspirants').select('*');
+      if (error) return [];
+      return (data || []).map(this.mapAspirant);
+  }
+
+  async processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void> {
+      const status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
+      
+      const { data: aspirant, error } = await supabase
+        .from('aspirants')
+        .update({ status })
+        .eq('id', aspirantId)
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+
+      if (approved && aspirant) {
+           await this.addCandidate(adminId, {
+            name: aspirant.full_name,
+            matricNo: aspirant.matric_no,
+            department: aspirant.department,
+            position: aspirant.position,
+            manifesto: aspirant.manifesto,
+            photoUrl: aspirant.passport_url
+        });
+      }
+      this.logAudit(adminId, UserRole.ADMIN, approved ? 'approve_aspirant' : 'reject_aspirant', `Processed aspirant ${aspirant?.full_name}`, aspirantId);
+  }
+
+  private mapAspirant(a: any): Aspirant {
+      return {
+          id: a.id,
+          fullName: a.full_name,
+          matricNo: a.matric_no,
+          department: a.department,
+          level: a.level,
+          position: a.position,
+          cgpa: a.cgpa,
+          manifesto: a.manifesto,
+          passportUrl: a.passport_url,
+          resultUrl: a.result_url,
+          status: a.status,
+          createdAt: Number(a.created_at)
+      };
+  }
+  // ------------------------------------
 
   async getCandidates(): Promise<Candidate[]> {
     const { data } = await supabase.from('candidates').select('*');

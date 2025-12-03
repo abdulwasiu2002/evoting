@@ -37,6 +37,21 @@ export interface Candidate {
   photoUrl: string;
 }
 
+export interface Aspirant {
+  id: string;
+  fullName: string;
+  matricNo: string;
+  department: string;
+  level: string;
+  position: Position;
+  cgpa: string;
+  manifesto: string;
+  passportUrl: string; // For the candidate card
+  resultUrl: string; // For admin verification of CGPA
+  status: ApprovalStatus;
+  createdAt: number;
+}
+
 export interface Vote {
   id: string;
   studentId: string;

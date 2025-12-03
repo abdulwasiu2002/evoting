@@ -25,7 +25,7 @@ export const Landing: React.FC = () => {
             Official 2024/2025 Executive Elections
             </p>
             
-            <div className="mt-10 max-w-lg mx-auto flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="mt-10 max-w-lg mx-auto flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             {/* Prominent Student Portal Button */}
             <Button 
                 onClick={() => navigate('/login')} 
@@ -43,6 +43,13 @@ export const Landing: React.FC = () => {
             >
                 Voter Registration
             </Button>
+            </div>
+            
+            <div className="mt-6">
+                <p className="text-sm text-gray-500 mb-2">Interested in running for office?</p>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/contest')}>
+                    Apply as Aspirant
+                </Button>
             </div>
         </div>
       </div>
