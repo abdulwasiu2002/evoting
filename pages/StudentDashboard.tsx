@@ -13,6 +13,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [positions, setPositions] = useState<string[]>([]);
   const [myVotes, setMyVotes] = useState<Vote[]>([]);
+  const [results, setResults] = useState<{candidateId: string, count: number}[]>([]);
   const [settings, setSettings] = useState<ElectionSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, string>>({});
@@ -27,16 +28,18 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [c, v, p, s] = await Promise.all([
+      const [c, v, p, s, r] = await Promise.all([
         db.getCandidates(),
         db.getMyVotes(user.id),
         db.getPositions(),
-        db.getElectionSettings()
+        db.getElectionSettings(),
+        db.getResults()
       ]);
       setCandidates(c);
       setMyVotes(v);
       setPositions(p);
       setSettings(s);
+      setResults(r); // Fetch results to show aspirant their own stats
       setLoading(false);
     };
     fetchData();
@@ -107,7 +110,16 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
              setMyVotes(prev => [...prev, ...successfulVotes]);
              setLastVoteReceipts(successfulVotes.map(v => v.id));
              
-             // Clear selections for positions that were successfully voted for
+             // Update results locally so aspirant sees their count go up immediately
+             const newResults = [...results];
+             successfulVotes.forEach(v => {
+                 const existing = newResults.find(r => r.candidateId === v.candidateId);
+                 if (existing) existing.count++;
+                 else newResults.push({ candidateId: v.candidateId, count: 1 });
+             });
+             setResults(newResults);
+
+             // Clear selections
              const remainingSelections = { ...selectedCandidates };
              votesToCast.forEach(([pos]) => {
                  if(successfulVotes.find(v => v.position === pos)) {
@@ -137,6 +149,10 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const pendingCount = getPendingVotes().length;
   const votingOpen = isVotingOpen();
 
+  // CHECK IF USER IS A CANDIDATE
+  const myCandidateProfile = candidates.find(c => c.matricNo === user.matricNo);
+  const myCandidateVotes = myCandidateProfile ? (results.find(r => r.candidateId === myCandidateProfile.id)?.count || 0) : 0;
+
   if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
 
   return (
@@ -152,6 +168,24 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
             </span>
         </div>
       </div>
+
+      {/* ASPIRANT / CANDIDATE WIDGET */}
+      {myCandidateProfile && (
+          <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-lg shadow-lg p-6 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+              <div className="relative z-10 flex justify-between items-center">
+                  <div>
+                      <p className="text-purple-200 font-bold uppercase text-xs tracking-wider">Campaign Performance</p>
+                      <h2 className="text-2xl font-bold mt-1">{myCandidateProfile.position} Candidate</h2>
+                      <p className="text-purple-100 text-sm mt-1">You are currently visible on the ballot.</p>
+                  </div>
+                  <div className="text-center">
+                      <span className="block text-4xl font-extrabold">{myCandidateVotes}</span>
+                      <span className="text-xs text-purple-200 uppercase">Total Votes</span>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {!votingOpen && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
@@ -212,7 +246,13 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                         <div className="flex items-start space-x-4">
                             <img src={candidate.photoUrl} alt={candidate.name} className="w-16 h-16 rounded-full object-cover bg-gray-200" />
                             <div>
-                                <h3 className="font-bold text-gray-900">{candidate.name}</h3>
+                                <h3 className="font-bold text-gray-900 flex items-center">
+                                    {candidate.name}
+                                    {/* Tag if this is YOU */}
+                                    {candidate.matricNo === user.matricNo && (
+                                        <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded uppercase font-bold">You</span>
+                                    )}
+                                </h3>
                                 <p className="text-xs text-gray-500">{candidate.department}</p>
                             </div>
                         </div>

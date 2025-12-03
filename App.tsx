@@ -25,7 +25,15 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login onLogin={setUser} />} />
-          <Route path="/contest" element={<AspirantRegistration />} />
+          
+          <Route 
+            path="/contest" 
+            element={
+              user 
+              ? <AspirantRegistration user={user} /> 
+              : <Navigate to="/login" state={{ from: '/contest' }} replace />
+            } 
+          />
           
           <Route 
             path="/dashboard" 

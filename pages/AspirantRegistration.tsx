@@ -3,14 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { db } from '../services/mockDb';
+import { User } from '../types';
 
-export const AspirantRegistration: React.FC = () => {
+interface Props {
+  user: User;
+}
+
+export const AspirantRegistration: React.FC<Props> = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Data
-  const [departments, setDepartments] = useState<string[]>([]);
   const [positions, setPositions] = useState<string[]>([]);
 
   // Images
@@ -18,24 +22,16 @@ export const AspirantRegistration: React.FC = () => {
   const [resultPreview, setResultPreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    fullName: '',
-    matricNo: '',
-    department: '',
-    level: 'ND I',
     position: '',
     cgpa: '',
     manifesto: ''
   });
 
-  const LEVELS = ['ND I', 'ND II', 'HND I', 'HND II'];
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [d, p] = await Promise.all([db.getDepartments(), db.getPositions()]);
-        setDepartments(d);
+        const p = await db.getPositions();
         setPositions(p);
-        if (d.length > 0) setFormData(prev => ({ ...prev, department: d[0] }));
         if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0] }));
       } catch (e) {
           console.error(e);
@@ -108,18 +104,19 @@ export const AspirantRegistration: React.FC = () => {
     
     try {
         await db.registerAspirant({
-            fullName: formData.fullName,
-            matricNo: formData.matricNo,
-            department: formData.department,
-            level: formData.level,
+            // Pull strictly from the logged-in user to ensure linkage
+            fullName: user.fullName,
+            matricNo: user.matricNo,
+            department: user.department,
+            level: user.level || 'Unknown', 
             position: formData.position,
             cgpa: formData.cgpa,
             manifesto: formData.manifesto,
             passportUrl: passportPreview,
             resultUrl: resultPreview
         });
-        alert("Aspirant application submitted successfully! Pending admin review.");
-        navigate('/');
+        alert("Aspirant application submitted successfully! You can track your status in your Dashboard.");
+        navigate('/dashboard');
     } catch (err: any) {
         setError(err.message || "Submission failed");
     } finally {
@@ -136,53 +133,37 @@ export const AspirantRegistration: React.FC = () => {
 
                 {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
 
+                <div className="bg-blue-50 p-4 rounded mb-6 border border-blue-100">
+                    <p className="text-xs text-blue-500 uppercase font-bold mb-1">Applicant Profile</p>
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <p className="font-bold text-blue-900 text-lg">{user.fullName}</p>
+                            <p className="text-blue-700 text-sm">{user.matricNo}</p>
+                        </div>
+                        <div className="text-right text-sm text-blue-600">
+                            <p>{user.department}</p>
+                            <p>{user.level}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Matric No</label>
-                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.matricNo} onChange={e => setFormData({...formData, matricNo: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Level</label>
-                            <select 
-                                className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" 
-                                value={formData.level} 
-                                onChange={e => setFormData({...formData, level: e.target.value})}
-                            >
-                                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">CGPA</label>
-                            <input required type="text" placeholder="e.g. 4.5" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Department</label>
-                            <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})}>
-                                {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                            </select>
-                        </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Position</label>
                             <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}>
                                 {positions.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">CGPA</label>
+                            <input required type="text" placeholder="e.g. 3.50" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
+                        </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Manifesto</label>
-                        <textarea required rows={4} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.manifesto} onChange={e => setFormData({...formData, manifesto: e.target.value})} placeholder="State your vision..."></textarea>
+                        <textarea required rows={6} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.manifesto} onChange={e => setFormData({...formData, manifesto: e.target.value})} placeholder="State your vision..."></textarea>
                     </div>
 
                     <div className="grid grid-cols-2 gap-6 pt-2">
@@ -230,11 +211,11 @@ export const AspirantRegistration: React.FC = () => {
                 <ul className="space-y-4">
                     <li className="flex items-start">
                         <span className="h-6 w-6 rounded-full bg-emerald-700 flex items-center justify-center mr-3 text-sm">1</span>
-                        <span>You must be a registered student of the department.</span>
+                        <span>Your application is linked to your student account: <strong>{user.matricNo}</strong>.</span>
                     </li>
                     <li className="flex items-start">
                         <span className="h-6 w-6 rounded-full bg-emerald-700 flex items-center justify-center mr-3 text-sm">2</span>
-                        <span>Minimum CGPA Requirement: <strong>3.0</strong></span>
+                        <span>Minimum CGPA Requirement: <strong>3.00</strong>.</span>
                     </li>
                     <li className="flex items-start">
                         <span className="h-6 w-6 rounded-full bg-emerald-700 flex items-center justify-center mr-3 text-sm">3</span>
@@ -242,7 +223,7 @@ export const AspirantRegistration: React.FC = () => {
                     </li>
                     <li className="flex items-start">
                         <span className="h-6 w-6 rounded-full bg-emerald-700 flex items-center justify-center mr-3 text-sm">4</span>
-                        <span>Upload your most recent result slip as proof of academic standing.</span>
+                        <span>Once approved, you will appear on the ballot and can track your votes in your dashboard.</span>
                     </li>
                 </ul>
             </div>
