@@ -15,9 +15,12 @@ export const Register: React.FC = () => {
     fullName: '',
     matricNo: '',
     department: '',
+    level: 'ND I',
     password: '',
     confirmPassword: ''
   });
+
+  const LEVELS = ['ND I', 'ND II', 'HND I', 'HND II'];
 
   useEffect(() => {
     const fetchDepts = async () => {
@@ -133,6 +136,7 @@ export const Register: React.FC = () => {
         fullName: formData.fullName,
         matricNo: formData.matricNo,
         department: formData.department,
+        level: formData.level,
         passwordHash: formData.password,
         idCardUrl: preview 
       });
@@ -192,18 +196,30 @@ export const Register: React.FC = () => {
               onChange={(e) => setFormData({...formData, matricNo: e.target.value})}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Department</label>
-            <select 
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-              value={formData.department}
-              onChange={(e) => setFormData({...formData, department: e.target.value})}
-            >
-              {departments.length === 0 ? <option>Loading...</option> : null}
-              {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Department</label>
+                <select 
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                value={formData.department}
+                onChange={(e) => setFormData({...formData, department: e.target.value})}
+                >
+                {departments.length === 0 ? <option>Loading...</option> : null}
+                {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                ))}
+                </select>
+              </div>
+              <div>
+                  <label className="block text-sm font-medium text-gray-700">Student Level</label>
+                  <select 
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                    value={formData.level}
+                    onChange={(e) => setFormData({...formData, level: e.target.value})}
+                  >
+                      {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+              </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

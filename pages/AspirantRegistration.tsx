@@ -21,11 +21,13 @@ export const AspirantRegistration: React.FC = () => {
     fullName: '',
     matricNo: '',
     department: '',
-    level: '',
+    level: 'ND I',
     position: '',
     cgpa: '',
     manifesto: ''
   });
+
+  const LEVELS = ['ND I', 'ND II', 'HND I', 'HND II'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -149,7 +151,13 @@ export const AspirantRegistration: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Level</label>
-                            <input required type="text" placeholder="e.g. 300" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.level} onChange={e => setFormData({...formData, level: e.target.value})} />
+                            <select 
+                                className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" 
+                                value={formData.level} 
+                                onChange={e => setFormData({...formData, level: e.target.value})}
+                            >
+                                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">CGPA</label>

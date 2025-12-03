@@ -303,32 +303,75 @@ export const AdminDashboard: React.FC = () => {
   }
 
   // --- Analytics & Export Functions ---
-  const generatePDFReport = () => {
+  const generatePDFReport = async () => {
     const doc = new jsPDF();
-    doc.text("NACOSS E-Voting Election Report", 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    const pageWidth = doc.internal.pageSize.getWidth();
     
-    // Add Stats
+    // Header
+    doc.setFontSize(18);
+    doc.text("NACOSS E-Voting Election Report", pageWidth / 2, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    
+    // Summary Stats
     const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
     const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
-    doc.text(`Total Registered Students: ${totalRegistered}`, 14, 40);
-    doc.text(`Total Votes Cast: ${totalVotes}`, 14, 46);
+    
+    doc.setFontSize(12);
+    doc.text(`Total Registered Students: ${totalRegistered}`, 14, 45);
+    doc.text(`Total Votes Cast: ${totalVotes}`, 14, 52);
 
-    // Results Table
-    const tableColumn = ["Candidate", "Position", "Votes"];
-    const tableRows: any[] = [];
+    let finalY = 60;
+
+    // 1. Election Results Table
+    doc.setFontSize(14);
+    doc.text("Election Results", 14, finalY);
+    finalY += 5;
+
+    const resultColumns = ["Candidate", "Position", "Votes"];
+    const resultRows: any[] = [];
     results.forEach(item => {
-        tableRows.push([item.name, item.position, item.votes]);
+        resultRows.push([item.name, item.position, item.votes]);
     });
 
     (doc as any).autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: 55,
+        head: [resultColumns],
+        body: resultRows,
+        startY: finalY,
+    });
+    
+    finalY = (doc as any).lastAutoTable.finalY + 15;
+
+    // Fetch breakdown stats
+    const breakdown = await db.getVoterBreakdown();
+
+    // 2. Voter Breakdown by Level
+    doc.setFontSize(14);
+    doc.text("Voter Turnout by Level", 14, finalY);
+    finalY += 5;
+
+    const levelRows = breakdown.byLevel.map(l => [l.name, l.count]);
+    (doc as any).autoTable({
+        head: [['Level', 'Voters']],
+        body: levelRows,
+        startY: finalY,
+    });
+    finalY = (doc as any).lastAutoTable.finalY + 15;
+
+    // 3. Voter Breakdown by Department
+    doc.setFontSize(14);
+    doc.text("Voter Turnout by Department", 14, finalY);
+    finalY += 5;
+
+    const deptRows = breakdown.byDepartment.map(d => [d.name, d.count]);
+    (doc as any).autoTable({
+        head: [['Department', 'Voters']],
+        body: deptRows,
+        startY: finalY,
     });
 
-    doc.save("election_report.pdf");
+    doc.save("election_report_full.pdf");
   };
 
   const exportExcelCSV = () => {
@@ -498,7 +541,7 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="flex gap-4">
                   <Button onClick={generatePDFReport} className="bg-red-600 hover:bg-red-700">
-                      Download Official Report (PDF)
+                      Download Detailed Report (PDF)
                   </Button>
                   <Button variant="outline" onClick={exportExcelCSV}>
                       Export Raw Data (CSV)
@@ -815,6 +858,12 @@ export const AdminDashboard: React.FC = () => {
                                    <p className="text-xs text-gray-500 uppercase">Department</p>
                                    <p>{verifyingUser.department}</p>
                                </div>
+                               {verifyingUser.level && (
+                                   <div>
+                                       <p className="text-xs text-gray-500 uppercase">Level</p>
+                                       <p className="font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded inline-block">{verifyingUser.level}</p>
+                                   </div>
+                               )}
                                <div className="mt-8 pt-4 border-t flex gap-3">
                                    <Button className="flex-1" onClick={() => handleApproval(verifyingUser.id, true)}>
                                        ✓ Approve Registration

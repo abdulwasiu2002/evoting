@@ -19,6 +19,7 @@ export interface User {
   matricNo: string; // Used as login for students
   email?: string;
   department: string;
+  level?: string; // Added level
   role: UserRole;
   status: ApprovalStatus;
   passwordHash: string; // In real app, hashed. Here, plain for mock.

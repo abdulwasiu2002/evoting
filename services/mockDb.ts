@@ -126,6 +126,10 @@ interface IDatabaseService {
   // Analytics
   getAuditLogs(adminId: string): Promise<AuditLog[]>;
   getDepartmentStats(): Promise<{name: string, count: number}[]>;
+  getVoterBreakdown(): Promise<{
+      byLevel: {name: string, count: number}[],
+      byDepartment: {name: string, count: number}[]
+  }>;
 }
 
 // ----------------------------------------------------------------------
@@ -322,18 +326,18 @@ class MockDB implements IDatabaseService {
     const existingIndex = users.findIndex(u => u.matricNo === data.matricNo);
     
     if (existingIndex !== -1) {
-        // If user exists and is REJECTED, allow re-registration (overwrite)
         const existingUser = users[existingIndex];
         if (existingUser.status === ApprovalStatus.REJECTED) {
              const updatedUser: User = {
                 ...existingUser,
                 fullName: data.fullName,
                 department: data.department,
+                level: data.level,
                 passwordHash: data.passwordHash,
                 idCardUrl: data.idCardUrl || existingUser.idCardUrl,
                 status: ApprovalStatus.PENDING,
                 rejectionReason: undefined,
-                createdAt: Date.now() // Update timestamp to bump it to top of pending list
+                createdAt: Date.now()
              };
              users[existingIndex] = updatedUser;
              this.setItems(USERS_KEY, users);
@@ -506,6 +510,32 @@ class MockDB implements IDatabaseService {
     users.forEach(u => { counts[u.department] = (counts[u.department] || 0) + 1; });
     return Object.entries(counts).map(([name, count]) => ({ name, count }));
   }
+
+  async getVoterBreakdown(): Promise<{
+      byLevel: {name: string, count: number}[],
+      byDepartment: {name: string, count: number}[]
+  }> {
+      const users = this.getItems<User>(USERS_KEY);
+      const votes = this.getItems<Vote>(VOTES_KEY);
+      // Get unique students who voted
+      const votingStudentIds = new Set(votes.map(v => v.studentId));
+      
+      const levelCounts: Record<string, number> = {};
+      const deptCounts: Record<string, number> = {};
+
+      users.forEach(u => {
+          if (votingStudentIds.has(u.id)) {
+              const level = u.level || 'Unknown';
+              levelCounts[level] = (levelCounts[level] || 0) + 1;
+              deptCounts[u.department] = (deptCounts[u.department] || 0) + 1;
+          }
+      });
+
+      return {
+          byLevel: Object.entries(levelCounts).map(([name, count]) => ({name, count})),
+          byDepartment: Object.entries(deptCounts).map(([name, count]) => ({name, count}))
+      };
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -671,6 +701,7 @@ class SupabaseDB implements IDatabaseService {
       full_name: data.fullName,
       matric_no: data.matricNo,
       department: data.department,
+      level: data.level,
       password_hash: data.passwordHash,
       id_card_url: data.idCardUrl, // Base64 string for now
       role: UserRole.STUDENT,
@@ -915,12 +946,38 @@ class SupabaseDB implements IDatabaseService {
      return Object.entries(counts).map(([name, count]) => ({ name, count }));
   }
 
+  async getVoterBreakdown(): Promise<{
+      byLevel: {name: string, count: number}[],
+      byDepartment: {name: string, count: number}[]
+  }> {
+      const { data: users } = await supabase.from('users').select('id, level, department');
+      const { data: votes } = await supabase.from('votes').select('student_id');
+      
+      const votingStudentIds = new Set((votes || []).map((v: any) => v.student_id));
+      const levelCounts: Record<string, number> = {};
+      const deptCounts: Record<string, number> = {};
+
+      (users || []).forEach((u: any) => {
+          if (votingStudentIds.has(u.id)) {
+              const level = u.level || 'Unknown';
+              levelCounts[level] = (levelCounts[level] || 0) + 1;
+              deptCounts[u.department] = (deptCounts[u.department] || 0) + 1;
+          }
+      });
+
+      return {
+          byLevel: Object.entries(levelCounts).map(([name, count]) => ({name, count})),
+          byDepartment: Object.entries(deptCounts).map(([name, count]) => ({name, count}))
+      };
+  }
+
   private mapUser(u: any): User {
     return {
       id: u.id,
       fullName: u.full_name,
       matricNo: u.matric_no,
       department: u.department,
+      level: u.level,
       role: u.role as UserRole,
       status: u.status as ApprovalStatus,
       passwordHash: u.password_hash,
