@@ -111,6 +111,10 @@ interface IDatabaseService {
   
   // Aspirants (New)
   registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant>;
+  registerAspirantUser(data: {
+      fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
+      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
+  }): Promise<void>;
   getAspirants(): Promise<Aspirant[]>;
   processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
 
@@ -404,6 +408,35 @@ class MockDB implements IDatabaseService {
     return newAspirant;
   }
 
+  // New Combined Registration
+  async registerAspirantUser(data: {
+      fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
+      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
+  }): Promise<void> {
+      // 1. Create User Account
+      await this.register({
+          fullName: data.fullName,
+          matricNo: data.matricNo,
+          department: data.department,
+          level: data.level,
+          passwordHash: data.passwordHash,
+          idCardUrl: data.idCardUrl
+      });
+      
+      // 2. Create Aspirant Application
+      await this.registerAspirant({
+          fullName: data.fullName,
+          matricNo: data.matricNo,
+          department: data.department,
+          level: data.level,
+          position: data.position,
+          cgpa: data.cgpa,
+          manifesto: data.manifesto,
+          passportUrl: data.passportUrl,
+          resultUrl: data.resultUrl
+      });
+  }
+
   async getAspirants(): Promise<Aspirant[]> {
     return this.getItems<Aspirant>(ASPIRANTS_KEY);
   }
@@ -418,7 +451,7 @@ class MockDB implements IDatabaseService {
     this.setItems(ASPIRANTS_KEY, aspirants);
 
     if (approved) {
-        // Convert to Candidate
+        // 1. Promote to Candidate
         await this.addCandidate(adminId, {
             name: aspirant.fullName,
             matricNo: aspirant.matricNo,
@@ -427,6 +460,15 @@ class MockDB implements IDatabaseService {
             manifesto: aspirant.manifesto,
             photoUrl: aspirant.passportUrl
         });
+
+        // 2. Approve User Account (so they can log in)
+        const users = this.getItems<User>(USERS_KEY);
+        const uIdx = users.findIndex(u => u.matricNo === aspirant.matricNo);
+        if (uIdx !== -1) {
+            users[uIdx].status = ApprovalStatus.APPROVED;
+            this.setItems(USERS_KEY, users);
+        }
+
         this.addAudit(adminId, UserRole.ADMIN, 'aspirant_approved', `Promoted ${aspirant.fullName} to Candidate`, aspirantId);
     } else {
         this.addAudit(adminId, UserRole.ADMIN, 'aspirant_rejected', `Rejected aspirant ${aspirant.fullName}`, aspirantId);
@@ -664,7 +706,6 @@ class SupabaseDB implements IDatabaseService {
               return this.mapUser(newAdmin);
           } else {
               console.error("Failed to auto-seed admin:", createError);
-              // CRITICAL FIX: Propagate the DB error so user knows RLS is blocking it
               if (createError?.message) throw new Error("DB Error: " + createError.message);
           }
       }
@@ -681,7 +722,6 @@ class SupabaseDB implements IDatabaseService {
       return this.mapUser(data);
     } catch (e: any) {
         console.error("Login Error:", e);
-        // FIX: Detect ERR_NAME_NOT_RESOLVED (Configuration Error)
         if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
              throw new Error("Network Error: Could not connect to Database. Check your Vercel API URL configuration. You may have pasted the API Key into the URL field.");
         }
@@ -725,7 +765,6 @@ class SupabaseDB implements IDatabaseService {
             await sendEmail('admins@nacoss.edu.ng', 'Re-Registration', `User ${data.fullName} re-registered`);
             return this.mapUser(updated);
         } else {
-            // Already approved or pending
             throw new Error('Matric number already registered');
         }
     }
@@ -734,6 +773,9 @@ class SupabaseDB implements IDatabaseService {
     const { data: inserted, error } = await supabase.from('users').insert(userPayload).select().single();
     if (error) {
       if (error.code === '23505') throw new Error('Matric number already registered');
+      if (error.message?.includes('column "level" of relation "users" does not exist')) {
+          throw new Error('Database Error: Missing "level" column. Please run the SQL migration script.');
+      }
       throw new Error(error.message);
     }
     
@@ -778,8 +820,49 @@ class SupabaseDB implements IDatabaseService {
     };
 
     const { data: inserted, error } = await supabase.from('aspirants').insert(payload).select().single();
-    if (error) throw new Error(error.message);
+    if (error) {
+        if (error.message?.includes('column "level" of relation "aspirants" does not exist')) {
+          throw new Error('Database Error: Missing "level" column. Please run the SQL migration script.');
+        }
+        throw new Error(error.message);
+    }
     return this.mapAspirant(inserted);
+  }
+
+  // Combined Registration for Supabase
+  async registerAspirantUser(data: {
+      fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
+      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
+  }): Promise<void> {
+      // 1. Register User (Using existing register logic which handles errors)
+      await this.register({
+          fullName: data.fullName,
+          matricNo: data.matricNo,
+          department: data.department,
+          level: data.level,
+          passwordHash: data.passwordHash,
+          idCardUrl: data.idCardUrl
+      });
+      
+      // 2. Register Aspirant (If user registration succeeds)
+      try {
+        await this.registerAspirant({
+            fullName: data.fullName,
+            matricNo: data.matricNo,
+            department: data.department,
+            level: data.level,
+            position: data.position,
+            cgpa: data.cgpa,
+            manifesto: data.manifesto,
+            passportUrl: data.passportUrl,
+            resultUrl: data.resultUrl
+        });
+      } catch (e: any) {
+          // If aspirant creation fails, we technically have a "stranded" user account.
+          // For now, we just throw the error. In a real app, we might rollback.
+          console.error("Aspirant creation failed after user created:", e);
+          throw e; 
+      }
   }
 
   async getAspirants(): Promise<Aspirant[]> {
@@ -801,6 +884,7 @@ class SupabaseDB implements IDatabaseService {
       if (error) throw new Error(error.message);
 
       if (approved && aspirant) {
+           // 1. Promote to Candidate
            await this.addCandidate(adminId, {
             name: aspirant.full_name,
             matricNo: aspirant.matric_no,
@@ -808,7 +892,15 @@ class SupabaseDB implements IDatabaseService {
             position: aspirant.position,
             manifesto: aspirant.manifesto,
             photoUrl: aspirant.passport_url
-        });
+           });
+
+           // 2. Approve User Account for Login (Important!)
+           const { error: userError } = await supabase
+            .from('users')
+            .update({ status: ApprovalStatus.APPROVED })
+            .eq('matric_no', aspirant.matric_no);
+            
+           if (userError) console.warn("Failed to approve user account linked to aspirant:", userError);
       }
       this.logAudit(adminId, UserRole.ADMIN, approved ? 'approve_aspirant' : 'reject_aspirant', `Processed aspirant ${aspirant?.full_name}`, aspirantId);
   }

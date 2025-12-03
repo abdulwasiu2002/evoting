@@ -4,10 +4,10 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Landing } from './pages/Landing';
 import { Register } from './pages/Register';
+import { RegisterAspirant } from './pages/RegisterAspirant';
 import { Login } from './pages/Login';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
-import { AspirantRegistration } from './pages/AspirantRegistration';
 import { User, UserRole } from './types';
 
 function App() {
@@ -24,16 +24,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/register-aspirant" element={<RegisterAspirant />} />
           <Route path="/login" element={<Login onLogin={setUser} />} />
-          
-          <Route 
-            path="/contest" 
-            element={
-              user 
-              ? <AspirantRegistration user={user} /> 
-              : <Navigate to="/login" state={{ from: '/contest' }} replace />
-            } 
-          />
           
           <Route 
             path="/dashboard" 

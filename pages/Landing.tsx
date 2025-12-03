@@ -38,7 +38,7 @@ export const Landing: React.FC = () => {
                 </Button>
 
                 {/* Big Aspirant Card */}
-                <div onClick={() => navigate('/contest')} className="w-full bg-white p-6 rounded-2xl shadow-lg border-2 border-purple-100 hover:border-purple-300 hover:shadow-xl transition-all cursor-pointer group mt-4">
+                <div onClick={() => navigate('/register-aspirant')} className="w-full bg-white p-6 rounded-2xl shadow-lg border-2 border-purple-100 hover:border-purple-300 hover:shadow-xl transition-all cursor-pointer group mt-4">
                     <div className="flex items-center justify-between">
                          <div className="text-left">
                              <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors">Want to Contest?</h3>
