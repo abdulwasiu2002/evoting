@@ -416,12 +416,10 @@ class MockDB implements IDatabaseService {
     return newAspirant;
   }
 
-  // New Combined Registration
   async registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
   }): Promise<void> {
-      // 1. Create User Account
       await this.register({
           fullName: data.fullName,
           matricNo: data.matricNo,
@@ -431,7 +429,6 @@ class MockDB implements IDatabaseService {
           idCardUrl: data.idCardUrl
       });
       
-      // 2. Create Aspirant Application
       await this.registerAspirant({
           fullName: data.fullName,
           matricNo: data.matricNo,
@@ -475,15 +472,22 @@ class MockDB implements IDatabaseService {
 
     const aspirant = aspirants[idx];
     
+    // Check duplication in Candidates logic before processing
     if (approved) {
-        // Enforce payment check
         if (aspirant.paymentStatus !== PaymentStatus.PAID) {
             throw new Error("Cannot approve aspirant. Payment has not been verified.");
+        }
+        
+        // Prevent re-approval if already active candidate
+        const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
+        if (candidates.some(c => c.matricNo === aspirant.matricNo)) {
+             aspirant.status = ApprovalStatus.APPROVED; // Sync status if missed
+             this.setItems(ASPIRANTS_KEY, aspirants);
+             return; // Already processed
         }
 
         aspirant.status = ApprovalStatus.APPROVED;
         
-        // 1. Promote to Candidate
         await this.addCandidate(adminId, {
             name: aspirant.fullName,
             matricNo: aspirant.matricNo,
@@ -496,7 +500,6 @@ class MockDB implements IDatabaseService {
             resultUrl: aspirant.resultUrl
         });
 
-        // 2. Approve User Account
         const users = this.getItems<User>(USERS_KEY);
         const uIdx = users.findIndex(u => u.matricNo === aspirant.matricNo);
         if (uIdx !== -1) {
@@ -512,8 +515,6 @@ class MockDB implements IDatabaseService {
     
     this.setItems(ASPIRANTS_KEY, aspirants);
   }
-  // ------------------------
-
 
   async getCandidates(): Promise<Candidate[]> {
     await delay(300);
@@ -522,6 +523,12 @@ class MockDB implements IDatabaseService {
 
   async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
       const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
+      
+      // Prevent duplicates
+      if (candidates.some(c => c.matricNo === candidate.matricNo)) {
+          throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists.`);
+      }
+
       const newCand = { ...candidate, id: `c-${Date.now()}` };
       candidates.push(newCand);
       this.setItems(CANDIDATES_KEY, candidates);
@@ -732,6 +739,9 @@ class SupabaseDB implements IDatabaseService {
       const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
       
       if ((error || !data) && matricNo === 'admin' && password === 'admin123') {
+          // Check if ANY admin exists to prevent overwriting or duplicates if logic flawed
+          // Actually, just try to insert. If conflict, it handles it.
+          // But here we just want to bootstrap if missing.
           console.log("Admin account not found. Attempting to create default admin...");
           const { data: newAdmin, error: createError } = await supabase.from('users').insert({
             full_name: 'NACOSS Administrator',
@@ -746,8 +756,8 @@ class SupabaseDB implements IDatabaseService {
           if (newAdmin) {
               return this.mapUser(newAdmin);
           } else {
-              console.error("Failed to auto-seed admin:", createError);
-              if (createError?.message) throw new Error("DB Error: " + createError.message);
+             // If insert failed, maybe it exists but fetch failed? Or permission error.
+             if (createError) throw new Error(`DB Error: ${createError.message}. (Hint: Run SQL script to disable RLS or create admin)`);
           }
       }
 
@@ -905,11 +915,17 @@ class SupabaseDB implements IDatabaseService {
   async processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void> {
       const status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
       
-      // Fetch first to check payment
       if (approved) {
           const { data: asp } = await supabase.from('aspirants').select('*').eq('id', aspirantId).single();
           if (asp && asp.payment_status !== PaymentStatus.PAID) {
               throw new Error("Cannot approve aspirant. Payment has not been verified.");
+          }
+
+          // Check for duplicate candidate before proceeding
+          const { data: existingCand } = await supabase.from('candidates').select('*').eq('matric_no', asp.matric_no).single();
+          if (existingCand) {
+               await supabase.from('aspirants').update({ status: ApprovalStatus.APPROVED }).eq('id', aspirantId);
+               return; // Already promoted
           }
       }
 
@@ -935,7 +951,7 @@ class SupabaseDB implements IDatabaseService {
             resultUrl: aspirant.result_url
            });
 
-           const { error: userError } = await supabase
+           await supabase
             .from('users')
             .update({ status: ApprovalStatus.APPROVED })
             .eq('matric_no', aspirant.matric_no);
@@ -979,6 +995,12 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
+    // Check duplication
+    const { data: existing } = await supabase.from('candidates').select('*').eq('matric_no', candidate.matricNo).single();
+    if (existing) {
+        throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists.`);
+    }
+
     const dbCand = {
       name: candidate.name,
       matric_no: candidate.matricNo,

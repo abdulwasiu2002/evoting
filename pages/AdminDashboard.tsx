@@ -21,6 +21,9 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   
+  // UI Safety: Track which specific item is being processed to disable its button
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  
   // Real-time Activity Feed State
   const [liveActivity, setLiveActivity] = useState<{id: string, message: string, time: string}[]>([]);
 
@@ -59,9 +62,7 @@ export const AdminDashboard: React.FC = () => {
 
   const fetchAspirants = async () => {
     const asps = await db.getAspirants();
-    // Filter out approved ones from pending view, or show all? 
-    // Let's show all that are not REJECTED for now to manage payments
-    setAspirants(asps.filter(a => a.status !== 'rejected'));
+    setAspirants(asps);
   };
 
   const fetchCandidates = async () => {
@@ -174,10 +175,17 @@ export const AdminDashboard: React.FC = () => {
     const reason = !approve ? prompt("Reason for rejection?") : undefined;
     if (!approve && reason === null) return; 
     if (!approve && !reason) return; 
-
-    await db.processRegistration('admin-1', userId, approve, reason || undefined);
-    setVerifyingUser(null);
-    fetchPending(); 
+    
+    setProcessingId(userId);
+    try {
+        await db.processRegistration('admin-1', userId, approve, reason || undefined);
+        setVerifyingUser(null);
+        fetchPending(); 
+    } catch (e: any) {
+        alert(e.message);
+    } finally {
+        setProcessingId(null);
+    }
   };
 
   const handleAspirantApproval = async (aspirantId: string, approve: boolean) => {
@@ -190,22 +198,32 @@ export const AdminDashboard: React.FC = () => {
       }
 
       if (confirm(approve ? "Approve this aspirant? They will immediately become a candidate visible to voters." : "Reject this application?")) {
+          setProcessingId(aspirantId);
           try {
               await db.processAspirant('admin-1', aspirantId, approve);
               setReviewingAspirant(null);
               fetchAspirants();
           } catch (e: any) {
               alert(e.message);
+          } finally {
+              setProcessingId(null);
           }
       }
   };
 
   const handleVerifyPayment = async (aspirantId: string) => {
       if (confirm("Confirm that you have received payment from this aspirant?")) {
-          await db.verifyPayment('admin-1', aspirantId);
-          fetchAspirants();
-          if (reviewingAspirant?.id === aspirantId) {
-              setReviewingAspirant(prev => prev ? ({...prev, paymentStatus: PaymentStatus.PAID}) : null);
+          setProcessingId(aspirantId);
+          try {
+              await db.verifyPayment('admin-1', aspirantId);
+              fetchAspirants();
+              if (reviewingAspirant?.id === aspirantId) {
+                  setReviewingAspirant(prev => prev ? ({...prev, paymentStatus: PaymentStatus.PAID}) : null);
+              }
+          } catch (e: any) {
+              alert(e.message);
+          } finally {
+              setProcessingId(null);
           }
       }
   };
@@ -478,6 +496,10 @@ export const AdminDashboard: React.FC = () => {
 
   const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
   const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
+  
+  // Split aspirants for better UI
+  const pendingAspirants = aspirants.filter(a => a.status === 'pending');
+  const approvedAspirants = aspirants.filter(a => a.status === 'approved');
 
   return (
     <div>
@@ -499,7 +521,7 @@ export const AdminDashboard: React.FC = () => {
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
             >
               {tab} {tab === 'pending' && pendingUsers.length > 0 && `(${pendingUsers.length})`}
-              {tab === 'aspirants' && aspirants.length > 0 && `(${aspirants.length})`}
+              {tab === 'aspirants' && pendingAspirants.length > 0 && `(${pendingAspirants.length})`}
             </button>
           ))}
         </nav>
@@ -526,7 +548,15 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="primary" onClick={() => setVerifyingUser(user)}>Review Application</Button>
+                    <Button 
+                        size="sm" 
+                        variant="primary" 
+                        onClick={() => setVerifyingUser(user)}
+                        disabled={processingId === user.id}
+                        isLoading={processingId === user.id}
+                    >
+                        Review Application
+                    </Button>
                   </div>
                 </div>
               </li>
@@ -537,40 +567,81 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {activeTab === 'aspirants' && (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            {aspirants.length === 0 ? <div className="p-8 text-center text-gray-500">No pending aspirant applications.</div> : (
-                <ul className="divide-y divide-gray-200">
-                    {aspirants.map(asp => (
-                         <li key={asp.id} className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                     <div className="h-16 w-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                                         <img src={asp.passportUrl} className="h-full w-full object-cover" />
-                                     </div>
-                                     <div>
-                                         <div className="flex items-center gap-2">
-                                             <p className="text-lg font-medium text-purple-600">{asp.fullName}</p>
-                                             {asp.status === 'approved' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Candidate</span>}
-                                             {asp.paymentStatus === PaymentStatus.PAID ? 
-                                                 <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded">Paid</span> :
-                                                 asp.paymentStatus === PaymentStatus.PENDING ?
-                                                 <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Payment Verification Pending</span> :
-                                                 <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">Unpaid</span>
-                                             }
-                                         </div>
-                                         <p className="text-sm text-gray-600">Contesting for: <strong>{asp.position}</strong></p>
-                                         <p className="text-xs text-gray-500">{asp.level} Level • {asp.department}</p>
-                                     </div>
+        <div className="space-y-8">
+            {/* PENDING SECTION */}
+            <div className="bg-white shadow overflow-hidden sm:rounded-md border-l-4 border-yellow-400">
+                <div className="px-6 py-4 border-b border-gray-200 bg-yellow-50 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-gray-900">Pending Applications</h3>
+                    <span className="text-sm text-gray-500">Action Required: {pendingAspirants.length}</span>
+                </div>
+                {pendingAspirants.length === 0 ? <div className="p-8 text-center text-gray-500">No pending applications.</div> : (
+                    <ul className="divide-y divide-gray-200">
+                        {pendingAspirants.map(asp => (
+                            <li key={asp.id} className="p-6 hover:bg-gray-50">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="h-16 w-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 cursor-pointer" onClick={() => setReviewingAspirant(asp)}>
+                                            <img src={asp.passportUrl} className="h-full w-full object-cover" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-lg font-medium text-purple-600">{asp.fullName}</p>
+                                                {asp.paymentStatus === PaymentStatus.PAID ? 
+                                                    <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded font-bold">Paid</span> :
+                                                    asp.paymentStatus === PaymentStatus.PENDING ?
+                                                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded font-bold">Verify Payment</span> :
+                                                    <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">Unpaid</span>
+                                                }
+                                            </div>
+                                            <p className="text-sm text-gray-600">Contesting for: <strong>{asp.position}</strong></p>
+                                            <p className="text-xs text-gray-500">{asp.level} Level • {asp.department}</p>
+                                        </div>
+                                    </div>
+                                    <Button 
+                                        size="sm" 
+                                        onClick={() => setReviewingAspirant(asp)}
+                                        disabled={processingId === asp.id}
+                                    >
+                                        Review & Approve
+                                    </Button>
                                 </div>
-                                <Button size="sm" onClick={() => setReviewingAspirant(asp)}>Review & Approve</Button>
-                            </div>
-                         </li>
-                    ))}
-                </ul>
-            )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            {/* APPROVED SECTION */}
+            <div className="bg-white shadow overflow-hidden sm:rounded-md border-l-4 border-emerald-400 opacity-90">
+                <div className="px-6 py-4 border-b border-gray-200 bg-emerald-50">
+                    <h3 className="text-lg font-bold text-gray-900">Approved Candidates (History)</h3>
+                </div>
+                 {approvedAspirants.length === 0 ? <div className="p-8 text-center text-gray-500">No approved candidates yet.</div> : (
+                    <ul className="divide-y divide-gray-200 bg-gray-50">
+                        {approvedAspirants.map(asp => (
+                            <li key={asp.id} className="p-4 pl-6 opacity-75 hover:opacity-100 transition-opacity">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className="h-10 w-10 bg-gray-200 rounded-full overflow-hidden">
+                                            <img src={asp.passportUrl} className="h-full w-full object-cover" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900">{asp.fullName} <span className="text-emerald-600 text-xs">(Candidate)</span></p>
+                                            <p className="text-xs text-gray-500">Approved for {asp.position}</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs text-green-600 font-bold bg-green-100 px-2 py-1 rounded">Promoted</span>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                 )}
+            </div>
         </div>
       )}
 
+      {/* ... (Rest of dashboard remains same) ... */}
+      
       {activeTab === 'results' && ( /* ... existing results tab content ... */ 
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="lg:w-3/4 bg-white p-6 rounded shadow">
@@ -973,189 +1044,260 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* View Candidate Profile Modal */}
-      {viewingCandidate && ( /* ... same as before ... */
+      {viewingCandidate && (
           <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
                <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setViewingCandidate(null)}></div>
-                   <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
-                       <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Candidate Profile</h3>
-                            <div className="flex flex-col md:flex-row gap-6">
-                                {/* Images */}
-                                <div className="md:w-1/2 space-y-4">
-                                    <div className="border p-2 rounded">
-                                        <p className="text-xs text-gray-500 mb-1">Passport Photo</p>
-                                        <img src={viewingCandidate.photoUrl} className="h-48 mx-auto object-cover" />
-                                    </div>
-                                    {viewingCandidate.resultUrl ? (
-                                        <div className="border p-2 rounded">
-                                            <p className="text-xs text-gray-500 mb-1">Result Document</p>
-                                            <img src={viewingCandidate.resultUrl} className="h-64 mx-auto object-contain" />
-                                        </div>
-                                    ) : (
-                                        <div className="border p-4 rounded bg-gray-50 text-center text-gray-400 italic">
-                                            No result document available
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Details */}
-                                <div className="md:w-1/2 space-y-3">
-                                    <div className="bg-emerald-50 p-4 rounded border border-emerald-100">
-                                        <p className="text-sm text-emerald-800 font-bold">Position</p>
-                                        <p className="text-2xl font-bold text-emerald-900">{viewingCandidate.position}</p>
-                                    </div>
-                                    <p><strong>Name:</strong> {viewingCandidate.name}</p>
-                                    <p><strong>Matric:</strong> {viewingCandidate.matricNo}</p>
-                                    <p><strong>Department:</strong> {viewingCandidate.department}</p>
-                                    {viewingCandidate.level && <p><strong>Level:</strong> {viewingCandidate.level}</p>}
-                                    {viewingCandidate.cgpa && <p><strong>CGPA:</strong> {viewingCandidate.cgpa}</p>}
-                                    <div>
-                                        <strong>Manifesto:</strong>
-                                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1 max-h-40 overflow-y-auto">{viewingCandidate.manifesto}</p>
-                                    </div>
-                                </div>
-                            </div>
+                   <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
+                       <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                           <div className="flex justify-between items-start border-b pb-4 mb-4">
+                               <div>
+                                   <h3 className="text-xl font-bold text-gray-900">{viewingCandidate.name}</h3>
+                                   <p className="text-sm text-gray-500">{viewingCandidate.matricNo} • {viewingCandidate.department}</p>
+                                   <span className="inline-block bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded mt-1 font-bold">
+                                       {viewingCandidate.position}
+                                   </span>
+                               </div>
+                               <button onClick={() => setViewingCandidate(null)} className="text-gray-400 hover:text-gray-500">
+                                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                               </button>
+                           </div>
+                           
+                           <div className="grid md:grid-cols-2 gap-6">
+                               <div className="space-y-4">
+                                   <div>
+                                       <label className="block text-xs text-gray-500 uppercase font-bold">Passport Photo</label>
+                                       <div className="mt-1 h-48 bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
+                                           <img src={viewingCandidate.photoUrl} className="h-full w-full object-cover" />
+                                       </div>
+                                   </div>
+                                   <div>
+                                       <label className="block text-xs text-gray-500 uppercase font-bold">Result Document</label>
+                                       {viewingCandidate.resultUrl ? (
+                                           <div className="mt-1 h-48 bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
+                                                <img src={viewingCandidate.resultUrl} className="h-full w-full object-contain" />
+                                           </div>
+                                       ) : (
+                                           <div className="mt-1 h-20 bg-gray-50 rounded flex items-center justify-center text-gray-400 italic text-sm">
+                                               No result document uploaded.
+                                           </div>
+                                       )}
+                                   </div>
+                               </div>
+                               <div className="space-y-4">
+                                   <div className="grid grid-cols-2 gap-4">
+                                       <div className="bg-purple-50 p-3 rounded">
+                                           <label className="block text-xs text-purple-800 uppercase font-bold">CGPA</label>
+                                           <p className="text-lg font-bold text-gray-900">{viewingCandidate.cgpa || 'N/A'}</p>
+                                       </div>
+                                       <div className="bg-blue-50 p-3 rounded">
+                                           <label className="block text-xs text-blue-800 uppercase font-bold">Level</label>
+                                           <p className="text-lg font-bold text-gray-900">{viewingCandidate.level || 'N/A'}</p>
+                                       </div>
+                                   </div>
+                                   <div>
+                                       <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Manifesto</label>
+                                       <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 italic border border-gray-100 h-64 overflow-y-auto">
+                                           "{viewingCandidate.manifesto}"
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
                        </div>
                        <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end">
-                            <Button variant="ghost" onClick={() => setViewingCandidate(null)}>Close</Button>
+                           <Button onClick={() => setViewingCandidate(null)}>Close Profile</Button>
                        </div>
                    </div>
                </div>
           </div>
       )}
 
-      {/* User Verification Modal */}
-      {verifyingUser && ( /* ... same as before ... */
-        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      {/* Verification Modal for Users (Existing) */}
+      {verifyingUser && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setVerifyingUser(null)}></div>
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
-                    <div className="p-6">
-                        <h3 className="text-xl font-bold mb-4">Verify Student</h3>
-                        <div className="flex flex-col md:flex-row gap-6">
-                           <div className="md:w-1/2">
-                               {verifyingUser.idCardUrl ? 
-                                   <img src={verifyingUser.idCardUrl} className="w-full rounded shadow-sm border" alt="ID Card" /> 
-                                   : <div className="bg-gray-100 h-64 flex items-center justify-center">No Image</div>
-                               }
-                           </div>
-                           <div className="md:w-1/2 space-y-3">
-                               <div>
-                                   <p className="text-xs text-gray-500 uppercase">Full Name</p>
-                                   <p className="font-bold text-lg">{verifyingUser.fullName}</p>
-                               </div>
-                               <div>
-                                   <p className="text-xs text-gray-500 uppercase">Matric No</p>
-                                   <p className="font-mono bg-gray-100 p-1 rounded inline-block">{verifyingUser.matricNo}</p>
-                               </div>
-                               <div>
-                                   <p className="text-xs text-gray-500 uppercase">Department</p>
-                                   <p>{verifyingUser.department}</p>
-                               </div>
-                               {verifyingUser.level && (
-                                   <div>
-                                       <p className="text-xs text-gray-500 uppercase">Level</p>
-                                       <p className="font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded inline-block">{verifyingUser.level}</p>
-                                   </div>
-                               )}
-                               <div className="mt-8 pt-4 border-t flex gap-3">
-                                   <Button className="flex-1" onClick={() => handleApproval(verifyingUser.id, true)}>
-                                       ✓ Approve Registration
-                                   </Button>
-                                   <Button variant="danger" className="flex-1" onClick={() => handleApproval(verifyingUser.id, false)}>
-                                       ✕ Reject
-                                   </Button>
-                               </div>
-                           </div>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Verify Student Registration</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Student ID Card</label>
+                                <div className="border rounded-lg overflow-hidden bg-gray-100 h-64 flex items-center justify-center">
+                                    {verifyingUser.idCardUrl ? (
+                                        <img src={verifyingUser.idCardUrl} alt="ID Card" className="max-h-full max-w-full object-contain" />
+                                    ) : (
+                                        <span className="text-gray-400">No Image</span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs text-gray-500 uppercase">Full Name</label>
+                                    <p className="text-lg font-bold">{verifyingUser.fullName}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 uppercase">Matric No</label>
+                                    <p className="text-lg font-mono bg-gray-50 inline-block px-2 rounded">{verifyingUser.matricNo}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 uppercase">Department</label>
+                                    <p className="text-md">{verifyingUser.department}</p>
+                                </div>
+                                 <div>
+                                    <label className="block text-xs text-gray-500 uppercase">Level</label>
+                                    <p className="text-md">{verifyingUser.level || 'N/A'}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-3 flex justify-end">
-                        <Button variant="ghost" onClick={() => setVerifyingUser(null)}>Close</Button>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <Button 
+                            className="w-full sm:ml-3 sm:w-auto" 
+                            onClick={() => handleApproval(verifyingUser.id, true)}
+                            disabled={processingId === verifyingUser.id}
+                            isLoading={processingId === verifyingUser.id}
+                        >
+                            Approve
+                        </Button>
+                        <Button 
+                            variant="danger" 
+                            className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto" 
+                            onClick={() => handleApproval(verifyingUser.id, false)}
+                            disabled={processingId === verifyingUser.id}
+                        >
+                            Reject
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto" 
+                            onClick={() => setVerifyingUser(null)}
+                        >
+                            Cancel
+                        </Button>
                     </div>
                 </div>
             </div>
         </div>
       )}
-
-      {/* Aspirant Review Modal */}
+      
+      {/* Review Aspirant Modal */}
       {reviewingAspirant && (
-          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-               <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                   <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setReviewingAspirant(null)}></div>
-                   <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
-                       <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Review Aspirant Application</h3>
-                            
-                            {/* Payment Status Alert */}
-                            {reviewingAspirant.paymentStatus !== PaymentStatus.PAID && (
-                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                                    <div className="flex">
-                                        <div className="flex-shrink-0">
-                                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                            </svg>
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setReviewingAspirant(null)}></div>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div className="flex justify-between items-center mb-6 border-b pb-4">
+                            <h3 className="text-xl font-bold text-gray-900">Review Aspirant Application</h3>
+                            <div className="flex gap-2">
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                    reviewingAspirant.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                    Payment: {reviewingAspirant.paymentStatus.toUpperCase()}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                                    <h4 className="font-bold text-gray-700 mb-3 uppercase text-xs">Applicant Details</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs text-gray-500">Name</label>
+                                            <p className="font-medium">{reviewingAspirant.fullName}</p>
                                         </div>
-                                        <div className="ml-3">
-                                            <p className="text-sm text-yellow-700">
-                                                <span className="font-bold">Payment Not Verified.</span> You must verify payment before approving this application.
-                                            </p>
-                                            {reviewingAspirant.paymentStatus === PaymentStatus.PENDING && (
-                                                <Button size="sm" className="mt-2" onClick={() => handleVerifyPayment(reviewingAspirant.id)}>Confirm Payment Receipt</Button>
-                                            )}
+                                        <div>
+                                            <label className="text-xs text-gray-500">Matric No</label>
+                                            <p className="font-medium">{reviewingAspirant.matricNo}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500">Department</label>
+                                            <p className="font-medium">{reviewingAspirant.department}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500">Level</label>
+                                            <p className="font-medium">{reviewingAspirant.level}</p>
                                         </div>
                                     </div>
                                 </div>
-                            )}
 
-                            <div className="flex flex-col md:flex-row gap-6">
-                                {/* Images */}
-                                <div className="md:w-1/2 space-y-4">
-                                    <div className="border p-2 rounded">
-                                        <p className="text-xs text-gray-500 mb-1">Passport Photo</p>
-                                        <img src={reviewingAspirant.passportUrl} className="h-48 mx-auto object-cover" />
+                                <div className="bg-purple-50 p-4 rounded border border-purple-200">
+                                    <h4 className="font-bold text-purple-800 mb-3 uppercase text-xs">Contest Details</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs text-purple-600">Position</label>
+                                            <p className="font-bold text-lg">{reviewingAspirant.position}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-purple-600">CGPA</label>
+                                            <p className="font-bold text-lg">{reviewingAspirant.cgpa}</p>
+                                        </div>
                                     </div>
-                                    <div className="border p-2 rounded">
-                                        <p className="text-xs text-gray-500 mb-1">Result Document (CGPA Proof)</p>
-                                        <img src={reviewingAspirant.resultUrl} className="h-64 mx-auto object-contain" />
-                                    </div>
-                                </div>
-                                {/* Details */}
-                                <div className="md:w-1/2 space-y-3">
-                                    <div className="bg-purple-50 p-4 rounded border border-purple-100">
-                                        <p className="text-sm text-purple-800 font-bold">Target Position</p>
-                                        <p className="text-2xl font-bold text-purple-900">{reviewingAspirant.position}</p>
-                                    </div>
-                                    <p><strong>Name:</strong> {reviewingAspirant.fullName}</p>
-                                    <p><strong>Matric:</strong> {reviewingAspirant.matricNo}</p>
-                                    <p><strong>Department:</strong> {reviewingAspirant.department}</p>
-                                    <p><strong>Level:</strong> {reviewingAspirant.level}</p>
-                                    <p><strong>Claimed CGPA:</strong> {reviewingAspirant.cgpa}</p>
-                                    <div>
-                                        <strong>Manifesto:</strong>
-                                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1 max-h-40 overflow-y-auto">{reviewingAspirant.manifesto}</p>
-                                    </div>
-
-                                    <div className="pt-4 flex flex-col gap-2">
-                                        <Button 
-                                            className="w-full" 
-                                            disabled={reviewingAspirant.paymentStatus !== PaymentStatus.PAID}
-                                            onClick={() => handleAspirantApproval(reviewingAspirant.id, true)}
-                                        >
-                                            ✓ Approve & Promote to Candidate
-                                        </Button>
-                                        <Button variant="danger" className="w-full" onClick={() => handleAspirantApproval(reviewingAspirant.id, false)}>
-                                            ✕ Reject Application
-                                        </Button>
+                                    <div className="mt-4">
+                                        <label className="text-xs text-purple-600">Manifesto</label>
+                                        <p className="text-sm italic mt-1 bg-white p-2 rounded border border-purple-100">{reviewingAspirant.manifesto}</p>
                                     </div>
                                 </div>
                             </div>
-                       </div>
-                       <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end">
-                            <Button variant="ghost" onClick={() => setReviewingAspirant(null)}>Close</Button>
-                       </div>
-                   </div>
-               </div>
-          </div>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2 uppercase text-xs">Passport</h4>
+                                    <div className="h-48 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
+                                        <img src={reviewingAspirant.passportUrl} className="h-full w-full object-cover" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2 uppercase text-xs">Result / Proof</h4>
+                                    <div className="h-48 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
+                                        <img src={reviewingAspirant.resultUrl} className="h-full w-full object-contain" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                        {reviewingAspirant.paymentStatus !== PaymentStatus.PAID ? (
+                             <Button 
+                                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700"
+                                onClick={() => handleVerifyPayment(reviewingAspirant.id)}
+                                disabled={processingId === reviewingAspirant.id}
+                                isLoading={processingId === reviewingAspirant.id}
+                             >
+                                 Verify Payment First
+                             </Button>
+                        ) : (
+                             <Button 
+                                className="w-full sm:w-auto" 
+                                onClick={() => handleAspirantApproval(reviewingAspirant.id, true)}
+                                disabled={processingId === reviewingAspirant.id}
+                                isLoading={processingId === reviewingAspirant.id}
+                             >
+                                 Approve & Promote
+                             </Button>
+                        )}
+                        
+                        <Button 
+                            variant="danger" 
+                            className="w-full sm:w-auto" 
+                            onClick={() => handleAspirantApproval(reviewingAspirant.id, false)}
+                            disabled={processingId === reviewingAspirant.id}
+                        >
+                            Reject Application
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            className="w-full sm:w-auto" 
+                            onClick={() => setReviewingAspirant(null)}
+                        >
+                            Close
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
       )}
 
     </div>
