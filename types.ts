@@ -63,6 +63,8 @@ export interface Aspirant {
   manifesto: string;
   passportUrl: string; // For the candidate card
   resultUrl: string; // For admin verification of CGPA
+  address?: string; // Added
+  phone?: string; // Added
   status: ApprovalStatus;
   paymentStatus: PaymentStatus;
   createdAt: number;

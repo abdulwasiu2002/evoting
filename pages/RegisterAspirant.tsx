@@ -32,7 +32,9 @@ export const RegisterAspirant: React.FC = () => {
     confirmPassword: '',
     position: '',
     cgpa: '',
-    manifesto: ''
+    manifesto: '',
+    address: '',
+    phone: ''
   });
 
   useEffect(() => {
@@ -134,7 +136,9 @@ export const RegisterAspirant: React.FC = () => {
             cgpa: formData.cgpa,
             manifesto: formData.manifesto,
             passportUrl: passportPreview,
-            resultUrl: resultPreview
+            resultUrl: resultPreview,
+            address: formData.address,
+            phone: formData.phone
         });
 
         alert("Application submitted successfully! Please log in to your dashboard to complete the payment for your nomination form.");
@@ -186,6 +190,16 @@ export const RegisterAspirant: React.FC = () => {
                                 <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})}>
                                     {departments.map(d => <option key={d} value={d}>{d}</option>)}
                                 </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="e.g. 08012345678" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Address</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Your residential address" />
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="relative">

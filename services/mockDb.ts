@@ -110,7 +110,7 @@ interface IDatabaseService {
   registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant>;
   registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
-      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
+      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
   }): Promise<void>;
   getAspirants(): Promise<Aspirant[]>;
   processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
@@ -418,7 +418,7 @@ class MockDB implements IDatabaseService {
 
   async registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
-      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
+      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
   }): Promise<void> {
       await this.register({
           fullName: data.fullName,
@@ -438,7 +438,9 @@ class MockDB implements IDatabaseService {
           cgpa: data.cgpa,
           manifesto: data.manifesto,
           passportUrl: data.passportUrl,
-          resultUrl: data.resultUrl
+          resultUrl: data.resultUrl,
+          address: data.address,
+          phone: data.phone
       });
   }
 
@@ -849,6 +851,8 @@ class SupabaseDB implements IDatabaseService {
         manifesto: data.manifesto,
         passport_url: data.passportUrl,
         result_url: data.resultUrl,
+        address: data.address,
+        phone: data.phone,
         status: ApprovalStatus.PENDING,
         payment_status: PaymentStatus.UNPAID,
         created_at: Date.now()
@@ -862,6 +866,9 @@ class SupabaseDB implements IDatabaseService {
         if (error.message?.includes('column "payment_status"')) {
             throw new Error('Database Error: Missing "payment_status" column. Please run the SQL migration script.');
         }
+        if (error.message?.includes('column "address"')) {
+            throw new Error('Database Error: Missing "address" or "phone" column. Please run the SQL migration script.');
+        }
         throw new Error(error.message);
     }
     return this.mapAspirant(inserted);
@@ -869,7 +876,7 @@ class SupabaseDB implements IDatabaseService {
 
   async registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
-      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
+      position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
   }): Promise<void> {
       await this.register({
           fullName: data.fullName,
@@ -889,7 +896,9 @@ class SupabaseDB implements IDatabaseService {
             cgpa: data.cgpa,
             manifesto: data.manifesto,
             passportUrl: data.passportUrl,
-            resultUrl: data.resultUrl
+            resultUrl: data.resultUrl,
+            address: data.address,
+            phone: data.phone
         });
       } catch (e: any) {
           console.error("Aspirant creation failed after user created:", e);
@@ -971,6 +980,8 @@ class SupabaseDB implements IDatabaseService {
           manifesto: a.manifesto,
           passportUrl: a.passport_url,
           resultUrl: a.result_url,
+          address: a.address,
+          phone: a.phone,
           status: a.status,
           paymentStatus: a.payment_status || PaymentStatus.UNPAID,
           createdAt: Number(a.created_at)

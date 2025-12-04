@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, Candidate, Position, Vote, ElectionSettings, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
@@ -195,104 +196,139 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       
       // Load Images Async
       const logoUrl = "https://nacos.org.ng/img/about.jpg";
-      const logoData = await loadImage(logoUrl);
+      const polyLogoUrl = "https://fedpolybida.edu.ng/images/fpb.png";
       
-      const qrData = `NACOSS VALIDATED\nName: ${myAspirantProfile.fullName}\nMatric: ${myAspirantProfile.matricNo}\nPos: ${myAspirantProfile.position}\nStatus: PAID`;
+      const qrData = `NACOSS FORM\nName: ${myAspirantProfile.fullName}\nMatric: ${myAspirantProfile.matricNo}\nPos: ${myAspirantProfile.position}\nStatus: PAID\nPhone: ${myAspirantProfile.phone || 'N/A'}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
-      const qrImageData = await loadImage(qrUrl);
 
-      // HEADER SECTION
+      // Load all images in parallel
+      const [logoData, polyLogoData, qrImageData] = await Promise.all([
+          loadImage(logoUrl),
+          loadImage(polyLogoUrl),
+          loadImage(qrUrl)
+      ]);
+      
+      // -- HEADER --
+      // Left Logo (NACOSS)
       if (logoData) {
            doc.addImage(logoData, 'JPEG', 20, 10, 25, 25, undefined, 'FAST');
-      } else {
-          // Fallback logo
-          doc.setFillColor(16, 185, 129);
-          doc.circle(32, 22, 10, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(8);
-          doc.text("NACOSS", 26, 24);
       }
 
-      doc.setFontSize(18);
-      doc.setTextColor(16, 185, 129); // Emerald Color
-      doc.setFont("helvetica", "bold");
-      doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENTS", 105, 20, { align: "center" });
-      
-      doc.setFontSize(24);
-      doc.setTextColor(0, 0, 0);
-      doc.text("NACOSS", 105, 30, { align: "center" });
+      // Right Logo (School)
+      if (polyLogoData) {
+           doc.addImage(polyLogoData, 'PNG', 165, 10, 25, 25, undefined, 'FAST');
+      }
 
+      doc.setFontSize(14);
+      doc.setTextColor(50, 50, 50); 
+      doc.setFont("helvetica", "bold");
+      doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENT", 105, 18, { align: "center" });
+      
+      doc.setFontSize(30);
+      doc.setTextColor(40, 60, 50); // Dark Greenish
+      doc.text("NACOS", 105, 29, { align: "center" });
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text("THE FEDERAL POLYTECHNIC BIDA", 105, 35, { align: "center" });
+      doc.text("P.M.B 55, BIDA NIGER STATE", 105, 39, { align: "center" });
+      doc.text("MOTTO: TOWARDS ADVANCED TECHNOLOGY", 105, 43, { align: "center" });
+      
+      // Left/Right Header Info
+      doc.setFontSize(6);
+      doc.text("SECRETARIAT", 25, 40);
+      doc.text("Computer Science", 25, 43);
+      doc.text("Department", 25, 46);
+      doc.text("The Federal Polytechnic", 25, 49);
+      doc.text("P.M.B 55 Bida, Niger State", 25, 52);
+
+      doc.text("+2349046465408", 170, 40);
+      doc.text("nacosfpb@gmail.com", 170, 43);
+
+      doc.setLineWidth(0.5);
+      doc.line(15, 55, 195, 55);
+
+      // -- TITLE --
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("ELECTION CANDIDATE", 105, 65, { align: "center" });
+      doc.text("NOMINATION FORM", 105, 70, { align: "center" });
+      
+      // -- PASSPORT BOX --
+      doc.setDrawColor(0, 0, 0);
+      doc.rect(140, 60, 40, 45); // x, y, w, h
+      // If we have a passport in the profile, we could add it, but requirement is just the box for physical affixing if needed,
+      // or we can add it if available. Let's add it if it loads properly later.
+      
+      // -- FIELDS --
+      let y = 85;
+      const lineHeight = 10;
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("THE FEDERAL POLYTECHNIC BIDA, NIGER STATE", 105, 36, { align: "center" });
-      doc.text("MOTTO: TOWARDS ADVANCED TECHNOLOGY", 105, 41, { align: "center" });
-      
-      // Box around "Election Candidate Nomination Form"
-      doc.setDrawColor(0);
-      doc.rect(55, 48, 100, 12); 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("ELECTION CANDIDATE", 105, 53, { align: "center" });
-      doc.text("NOMINATION FORM", 105, 58, { align: "center" });
-      
-      // Photo Box (Top Right)
-      doc.rect(160, 48, 35, 40);
-      doc.setFontSize(8);
-      doc.text("Passport", 170, 70);
 
-      // --- FORM FIELDS ---
-      let y = 75;
-      const lineHeight = 12;
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-
-      // Helper for underlined field
+      // Helper for underlined field: Label________Value________
       const addField = (label: string, value: string) => {
           doc.text(label, 20, y);
-          doc.text(value, 60, y);
-          doc.line(60, y + 1, 150, y + 1); // Underline
+          // Draw line
+          doc.line(60, y + 1, 140, y + 1); 
+          // Add Value
+          doc.text(value.toUpperCase(), 62, y);
           y += lineHeight;
       };
 
-      addField("FULLNAME:", myAspirantProfile.fullName.toUpperCase());
-      addField("MATRIC NUMBER:", myAspirantProfile.matricNo.toUpperCase());
-      addField("ADDRESS:", (myAspirantProfile.address || "").toUpperCase());
-      addField("LEVEL:", (myAspirantProfile.level || "").toUpperCase());
-      addField("POSITION:", myAspirantProfile.position.toUpperCase());
+      addField("FULLNAME:", myAspirantProfile.fullName);
+      y += 2; // Extra space
+      addField("MATRIC NUMBER:", myAspirantProfile.matricNo);
+      addField("ADDRESS:", myAspirantProfile.address || "");
+      y += 5; // Address takes more space usually
+      addField("LEVEL:", myAspirantProfile.level || "");
+      addField("POSITION:", myAspirantProfile.position);
       addField("GPA:", myAspirantProfile.cgpa);
-      addField("PHONE NUMBER:", (myAspirantProfile.phone || "").toUpperCase());
+      addField("PHONE NUMBER:", myAspirantProfile.phone || "");
       
-      // Manual Fields (Blank for user to fill)
-      addField("GUARANTOR:", "");
-      addField("GUARANTOR PHONE:", "");
-      
-      y += 10;
-      
-      // Signatures
-      doc.line(20, y + 30, 80, y + 30);
-      doc.text("Candidate Signature", 20, y + 35);
-      
-      doc.line(130, y + 30, 190, y + 30);
-      doc.text("Guarantor Signature", 130, y + 35);
+      // Manual Fields
+      doc.text("GUARANTOR:", 20, y);
+      doc.line(60, y + 1, 140, y + 1); // Empty line
+      y += lineHeight;
 
-      y += 45;
+      doc.text("GUARANTOR PHONE NUMBER:", 20, y);
+      doc.line(80, y + 1, 140, y + 1); // Empty line
+      
+      y += 40;
+      
+      // -- SIGNATURES --
+      doc.line(20, y, 70, y);
+      doc.text("Candidate Signature", 20, y + 5);
+      
+      doc.line(120, y, 170, y);
+      doc.text("Guarantor Signature", 120, y + 5);
+
+      y += 20;
       
       doc.line(20, y, 60, y);
       doc.text("Date", 20, y + 5);
 
-      doc.line(130, y, 170, y);
-      doc.text("Date", 130, y + 5);
+      doc.line(120, y, 160, y);
+      doc.text("Date", 120, y + 5);
 
-      // QR Code (Bottom Center)
+      // -- QR CODE --
       if (qrImageData) {
-         doc.addImage(qrImageData, "PNG", 90, 250, 30, 30); 
+         // Bottom center/right
+         doc.addImage(qrImageData, "PNG", 90, 240, 30, 30); 
       } else {
-          // Fallback box if API fails
-          doc.rect(90, 250, 30, 30);
+          doc.rect(90, 240, 30, 30);
           doc.setFontSize(8);
-          doc.text("QR SCAN", 105, 265, { align: "center"});
+          doc.text("QR SCAN", 105, 255, { align: "center"});
       }
+
+      // -- FOOTER INSTRUCTION --
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bolditalic");
+      doc.setTextColor(0, 0, 0);
+      const note = "NOTE: After completing and signing this form, please photocopy and submit one copy to the Electoral Chairman's Office.";
+      const splitNote = doc.splitTextToSize(note, 180);
+      doc.text(splitNote, 105, 280, { align: "center" });
 
       doc.save("NACOSS_Nomination_Form.pdf");
   };

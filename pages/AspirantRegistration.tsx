@@ -24,15 +24,17 @@ export const AspirantRegistration: React.FC<Props> = ({ user }) => {
   const [formData, setFormData] = useState({
     position: '',
     cgpa: '',
-    manifesto: ''
+    manifesto: '',
+    address: '',
+    phone: ''
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const p = await db.getPositions();
-        setPositions(p);
-        if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0] }));
+        setPositions(p.map(pos => pos.name));
+        if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0].name }));
       } catch (e) {
           console.error(e);
       }
@@ -113,7 +115,9 @@ export const AspirantRegistration: React.FC<Props> = ({ user }) => {
             cgpa: formData.cgpa,
             manifesto: formData.manifesto,
             passportUrl: passportPreview,
-            resultUrl: resultPreview
+            resultUrl: resultPreview,
+            address: formData.address,
+            phone: formData.phone
         });
         alert("Aspirant application submitted successfully! You can track your status in your Dashboard.");
         navigate('/dashboard');
@@ -158,6 +162,17 @@ export const AspirantRegistration: React.FC<Props> = ({ user }) => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700">CGPA</label>
                             <input required type="text" placeholder="e.g. 3.50" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="080..." />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Address</label>
+                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Residential Address" />
                         </div>
                     </div>
 
