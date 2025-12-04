@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { User, Candidate, Position, Vote, ElectionSettings } from '../types';
+import { User, Candidate, Position, Vote, ElectionSettings, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
 import { analyzeManifesto } from '../services/geminiService';
 import { Button } from '../components/Button';
+import { jsPDF } from 'jspdf';
 
 interface Props {
   user: User;
@@ -11,7 +12,7 @@ interface Props {
 
 export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [positions, setPositions] = useState<string[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [myVotes, setMyVotes] = useState<Vote[]>([]);
   const [results, setResults] = useState<{candidateId: string, count: number}[]>([]);
   const [settings, setSettings] = useState<ElectionSettings | null>(null);
@@ -21,6 +22,10 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [aiAnalysis, setAiAnalysis] = useState<Record<string, string>>({});
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   
+  // Aspirant Specifics
+  const [myAspirantProfile, setMyAspirantProfile] = useState<Aspirant | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
   // Modal States
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -28,22 +33,27 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [c, v, p, s, r] = await Promise.all([
+      const [c, v, p, s, r, asps] = await Promise.all([
         db.getCandidates(),
         db.getMyVotes(user.id),
         db.getPositions(),
         db.getElectionSettings(),
-        db.getResults()
+        db.getResults(),
+        db.getAspirants()
       ]);
       setCandidates(c);
       setMyVotes(v);
       setPositions(p);
       setSettings(s);
-      setResults(r); // Fetch results to show aspirant their own stats
+      setResults(r);
+      
+      const myAsp = asps.find(a => a.matricNo === user.matricNo);
+      setMyAspirantProfile(myAsp || null);
+
       setLoading(false);
     };
     fetchData();
-  }, [user.id]);
+  }, [user.id, user.matricNo]);
 
   const handleAnalyze = async (candidate: Candidate) => {
     setAnalyzingId(candidate.id);
@@ -96,10 +106,9 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
     const errors: string[] = [];
 
     try {
-        // Cast votes sequentially
         for (const [position, candidateId] of votesToCast) {
             try {
-                const vote = await db.castVote(user.id, candidateId as string, position as Position);
+                const vote = await db.castVote(user.id, candidateId as string, position);
                 successfulVotes.push(vote);
             } catch (err: any) {
                 errors.push(`${position}: ${err.message}`);
@@ -110,7 +119,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
              setMyVotes(prev => [...prev, ...successfulVotes]);
              setLastVoteReceipts(successfulVotes.map(v => v.id));
              
-             // Update results locally so aspirant sees their count go up immediately
              const newResults = [...results];
              successfulVotes.forEach(v => {
                  const existing = newResults.find(r => r.candidateId === v.candidateId);
@@ -119,7 +127,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
              });
              setResults(newResults);
 
-             // Clear selections
              const remainingSelections = { ...selectedCandidates };
              votesToCast.forEach(([pos]) => {
                  if(successfulVotes.find(v => v.position === pos)) {
@@ -141,17 +148,71 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
     }
   };
 
+  // Payment Logic
+  const handleConfirmPayment = async () => {
+      if (!myAspirantProfile) return;
+      try {
+          setSubmitting(true);
+          await db.markPaymentAsPending(myAspirantProfile.id);
+          setMyAspirantProfile({ ...myAspirantProfile, paymentStatus: PaymentStatus.PENDING });
+          setShowPaymentModal(false);
+          alert("Payment confirmation sent. Please wait for admin approval.");
+      } catch (e: any) {
+          alert("Error: " + e.message);
+      } finally {
+          setSubmitting(false);
+      }
+  };
+
+  const downloadReceipt = () => {
+      if (!myAspirantProfile) return;
+      const doc = new jsPDF();
+      
+      // Receipt Design
+      doc.setFontSize(22);
+      doc.setTextColor(16, 185, 129); // Emerald
+      doc.text("NACOSS", 105, 20, { align: "center" });
+      
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Nomination Form Receipt", 105, 30, { align: "center" });
+
+      doc.setLineWidth(0.5);
+      doc.line(20, 35, 190, 35);
+
+      doc.setFontSize(12);
+      doc.text(`Aspirant Name: ${myAspirantProfile.fullName}`, 20, 50);
+      doc.text(`Matric No: ${myAspirantProfile.matricNo}`, 20, 60);
+      doc.text(`Position Applied: ${myAspirantProfile.position}`, 20, 70);
+      doc.text(`Payment Status: VERIFIED`, 20, 80);
+      doc.text(`Date Issued: ${new Date().toLocaleDateString()}`, 20, 90);
+      doc.text(`Reference ID: ${myAspirantProfile.id}`, 20, 100);
+
+      doc.setTextColor(16, 185, 129);
+      doc.setFontSize(20);
+      doc.text("PAID", 150, 70, { angle: -15 });
+      doc.rect(145, 55, 30, 20);
+
+      doc.setTextColor(0,0,0);
+      doc.setFontSize(10);
+      doc.text("This document serves as your official proof of purchase for the nomination form.", 105, 130, { align: "center" });
+      
+      doc.save("NACOSS_Nomination_Receipt.pdf");
+  };
+
   const groupedCandidates = positions.map(position => ({
-    position,
-    candidates: candidates.filter(c => c.position === position)
+    position: position.name,
+    candidates: candidates.filter(c => c.position === position.name)
   }));
 
   const pendingCount = getPendingVotes().length;
   const votingOpen = isVotingOpen();
 
-  // CHECK IF USER IS A CANDIDATE
   const myCandidateProfile = candidates.find(c => c.matricNo === user.matricNo);
   const myCandidateVotes = myCandidateProfile ? (results.find(r => r.candidateId === myCandidateProfile.id)?.count || 0) : 0;
+  
+  // Find price for aspirant
+  const aspirantPositionPrice = myAspirantProfile ? positions.find(p => p.name === myAspirantProfile.position)?.price || 0 : 0;
 
   if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
 
@@ -169,7 +230,59 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      {/* ASPIRANT / CANDIDATE WIDGET */}
+      {/* ASPIRANT PORTAL SECTION */}
+      {myAspirantProfile && (
+          <div className="bg-white rounded-lg shadow-lg border border-purple-200 overflow-hidden">
+              <div className="bg-purple-50 px-6 py-4 border-b border-purple-200 flex justify-between items-center">
+                  <h2 className="text-lg font-bold text-purple-900">Aspirant Portal</h2>
+                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                      myAspirantProfile.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                      myAspirantProfile.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                      'bg-yellow-100 text-yellow-800'
+                  }`}>
+                      Status: {myAspirantProfile.status}
+                  </span>
+              </div>
+              <div className="p-6">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                      <div>
+                          <p className="text-sm text-gray-500">Position Applied For</p>
+                          <p className="text-xl font-bold text-gray-900">{myAspirantProfile.position}</p>
+                          <p className="text-sm text-gray-500 mt-2">Nomination Form Price: <span className="font-bold text-gray-900">₦{aspirantPositionPrice.toLocaleString()}</span></p>
+                      </div>
+                      
+                      <div className="flex flex-col items-center">
+                           {myAspirantProfile.paymentStatus === PaymentStatus.UNPAID && (
+                               <Button onClick={() => setShowPaymentModal(true)}>
+                                   Purchase Nomination Form
+                               </Button>
+                           )}
+                           
+                           {myAspirantProfile.paymentStatus === PaymentStatus.PENDING && (
+                               <div className="text-center">
+                                   <p className="text-yellow-600 font-bold mb-2">Payment Verification Pending</p>
+                                   <p className="text-xs text-gray-500">Please wait for admin approval.</p>
+                               </div>
+                           )}
+
+                           {myAspirantProfile.paymentStatus === PaymentStatus.PAID && (
+                               <div className="text-center space-y-2">
+                                   <div className="flex items-center text-green-600 font-bold justify-center">
+                                       <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                       Payment Verified
+                                   </div>
+                                   <Button variant="outline" size="sm" onClick={downloadReceipt}>
+                                       Download Receipt & Form
+                                   </Button>
+                               </div>
+                           )}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* CANDIDATE PERFORMANCE WIDGET (Only if approved) */}
       {myCandidateProfile && (
           <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-lg shadow-lg p-6 text-white relative overflow-hidden">
               <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
@@ -177,7 +290,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                   <div>
                       <p className="text-purple-200 font-bold uppercase text-xs tracking-wider">Campaign Performance</p>
                       <h2 className="text-2xl font-bold mt-1">{myCandidateProfile.position} Candidate</h2>
-                      <p className="text-purple-100 text-sm mt-1">You are currently visible on the ballot.</p>
+                      <p className="text-purple-100 text-sm mt-1">You are visible on the ballot.</p>
                   </div>
                   <div className="text-center">
                       <span className="block text-4xl font-extrabold">{myCandidateVotes}</span>
@@ -187,32 +300,31 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
           </div>
       )}
 
+      {/* VOTING SECTION */}
       {!votingOpen && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <div className="flex">
+             {/* ... existing alert content ... */}
+             <div className="flex">
                 <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                 </div>
                 <div className="ml-3">
-                    <p className="text-sm text-yellow-700">
-                        {getStatusMessage()}
-                    </p>
+                    <p className="text-sm text-yellow-700">{getStatusMessage()}</p>
                 </div>
             </div>
           </div>
       )}
 
       {groupedCandidates.map(group => {
-        // If no candidates for this position, skip rendering it
         if (group.candidates.length === 0) return null;
-
         const voteForPosition = myVotes.find(v => v.position === group.position);
         
         return (
           <div key={group.position} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+             {/* ... existing voting card content ... */}
+             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">{group.position}</h2>
               {voteForPosition && (
                  <span className="text-sm text-emerald-600 font-medium flex items-center">
@@ -248,7 +360,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                             <div>
                                 <h3 className="font-bold text-gray-900 flex items-center">
                                     {candidate.name}
-                                    {/* Tag if this is YOU */}
                                     {candidate.matricNo === user.matricNo && (
                                         <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded uppercase font-bold">You</span>
                                     )}
@@ -260,7 +371,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                         <div className="mt-4 flex-1">
                             <p className="text-sm text-gray-600 italic">"{candidate.manifesto}"</p>
                             
-                            {/* Gemini AI Integration */}
                             {aiAnalysis[candidate.id] ? (
                                 <div className="mt-3 p-2 bg-purple-50 text-purple-800 text-xs rounded border border-purple-100">
                                     <strong>AI Summary:</strong> {aiAnalysis[candidate.id]}
@@ -299,7 +409,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         );
       })}
 
-      {/* Fixed Bottom Bar for Casting Votes */}
+      {/* Fixed Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center px-4 sm:px-6 lg:px-8 gap-4">
             <div className="flex flex-col text-center sm:text-left">
@@ -318,7 +428,41 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowPaymentModal(false)}></div>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Purchase Nomination Form</h3>
+                        <p className="text-sm text-gray-600 mb-4">Please make a transfer of <span className="font-bold text-lg text-emerald-600">₦{aspirantPositionPrice.toLocaleString()}</span> to the account below:</p>
+                        
+                        <div className="bg-gray-100 p-4 rounded mb-6 text-center space-y-1 border border-gray-200">
+                            <p className="text-sm text-gray-500 uppercase">Bank Name</p>
+                            <p className="font-bold text-lg">Moniepoint</p>
+                            
+                            <p className="text-sm text-gray-500 uppercase mt-2">Account Number</p>
+                            <p className="font-mono text-2xl font-bold tracking-widest text-emerald-700 bg-white inline-block px-3 py-1 rounded border border-gray-300">5449087183</p>
+                            
+                            <p className="text-sm text-gray-500 uppercase mt-2">Account Name</p>
+                            <p className="font-bold text-lg">Abdulwasiu Abubakar</p>
+                        </div>
+                        
+                        <div className="bg-yellow-50 p-3 rounded text-sm text-yellow-800 mb-4">
+                            <strong>Note:</strong> After transfer, click "I have made payment" below. Admin approval is required before your form is valid.
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <Button onClick={handleConfirmPayment} className="w-full sm:ml-3 sm:w-auto" isLoading={submitting}>I have made the payment</Button>
+                        <Button variant="outline" onClick={() => setShowPaymentModal(false)} className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto">Cancel</Button>
+                    </div>
+                </div>
+             </div>
+        </div>
+      )}
+
+      {/* Confirmation & Success Modals (Existing code...) */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -326,6 +470,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                 <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
                 <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
                     <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        {/* ... */}
                         <div className="sm:flex sm:items-start">
                             <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 sm:mx-0 sm:h-10 sm:w-10">
                                 <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

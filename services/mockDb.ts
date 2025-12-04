@@ -1,12 +1,9 @@
 
-import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings, Aspirant } from '../types';
+import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings, Aspirant, PaymentStatus } from '../types';
 import { sendEmail } from './emailService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // --- CONFIGURATION ---
-// Automatically determine mode:
-// If Supabase is properly configured -> Production Mode (False)
-// If keys are missing or placeholder -> Demo Mode (True)
 const USE_MOCK_DB = !isSupabaseConfigured(); 
 
 // ---------------------
@@ -33,16 +30,16 @@ const seedAdmin: User = {
   createdAt: Date.now()
 };
 
-const seedPositions = [
-  'President', 
-  'Vice President', 
-  'General Secretary', 
-  'Financial Secretary', 
-  'Treasurer', 
-  'Director of Socials', 
-  'P.R.O', 
-  'Director of Sports',
-  'Director of Software'
+const seedPositions: Position[] = [
+  { name: 'President', price: 5000, eligibleLevel: 'HND II' },
+  { name: 'Vice President', price: 4000, eligibleLevel: 'HND I' },
+  { name: 'General Secretary', price: 3000, eligibleLevel: 'All' },
+  { name: 'Financial Secretary', price: 3000, eligibleLevel: 'All' },
+  { name: 'Treasurer', price: 3000, eligibleLevel: 'All' },
+  { name: 'Director of Socials', price: 2500, eligibleLevel: 'All' },
+  { name: 'P.R.O', price: 2500, eligibleLevel: 'All' },
+  { name: 'Director of Sports', price: 2500, eligibleLevel: 'All' },
+  { name: 'Director of Software', price: 2500, eligibleLevel: 'All' }
 ];
 
 const seedDepartments = [
@@ -99,8 +96,8 @@ interface IDatabaseService {
   removeDepartment(adminId: string, name: string): Promise<void>;
   
   // Positions
-  getPositions(): Promise<string[]>;
-  addPosition(adminId: string, name: string): Promise<string>;
+  getPositions(): Promise<Position[]>;
+  addPosition(adminId: string, name: string, price: number, level: string): Promise<Position>;
   removePosition(adminId: string, name: string): Promise<void>;
   
   // Auth
@@ -110,20 +107,24 @@ interface IDatabaseService {
   processRegistration(adminId: string, userId: string, approved: boolean, reason?: string): Promise<void>;
   
   // Aspirants (New)
-  registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant>;
+  registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant>;
   registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
   }): Promise<void>;
   getAspirants(): Promise<Aspirant[]>;
   processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
+  
+  // Payment
+  markPaymentAsPending(aspirantId: string): Promise<void>;
+  verifyPayment(adminId: string, aspirantId: string): Promise<void>;
 
   // Voting
   getCandidates(): Promise<Candidate[]>;
   addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate>;
   updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate>;
   removeCandidate(adminId: string, candidateId: string): Promise<void>;
-  castVote(studentId: string, candidateId: string, position: Position): Promise<Vote>;
+  castVote(studentId: string, candidateId: string, position: string): Promise<Vote>;
   getMyVotes(studentId: string): Promise<Vote[]>;
   getResults(): Promise<{candidateId: string, count: number}[]>;
   
@@ -290,22 +291,28 @@ class MockDB implements IDatabaseService {
     this.setItems(DEPARTMENTS_KEY, depts);
   }
 
-  async getPositions(): Promise<string[]> {
+  async getPositions(): Promise<Position[]> {
     await delay(200);
-    return this.getItems<string>(POSITIONS_KEY);
+    const pos = this.getItems<any>(POSITIONS_KEY);
+    // Backward compatibility check for string array
+    if (pos.length > 0 && typeof pos[0] === 'string') {
+        return pos.map((p: string) => ({ name: p, price: 0, eligibleLevel: 'All' }));
+    }
+    return pos;
   }
 
-  async addPosition(adminId: string, name: string): Promise<string> {
-    const positions = this.getItems<string>(POSITIONS_KEY);
-    if (positions.includes(name)) throw new Error("Position already exists");
-    positions.push(name);
+  async addPosition(adminId: string, name: string, price: number, level: string): Promise<Position> {
+    const positions = this.getItems<Position>(POSITIONS_KEY);
+    if (positions.some(p => p.name === name)) throw new Error("Position already exists");
+    const newPos = { name, price, eligibleLevel: level };
+    positions.push(newPos);
     this.setItems(POSITIONS_KEY, positions);
-    return name;
+    return newPos;
   }
 
   async removePosition(adminId: string, name: string): Promise<void> {
-    let positions = this.getItems<string>(POSITIONS_KEY);
-    positions = positions.filter(p => p !== name);
+    let positions = this.getItems<Position>(POSITIONS_KEY);
+    positions = positions.filter(p => p.name !== name);
     this.setItems(POSITIONS_KEY, positions);
   }
 
@@ -391,7 +398,7 @@ class MockDB implements IDatabaseService {
   }
 
   // --- ASPIRANT METHODS ---
-  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant> {
+  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant> {
     await delay(800);
     const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
     if (aspirants.some(a => a.matricNo === data.matricNo)) throw new Error('You have already applied.');
@@ -400,6 +407,7 @@ class MockDB implements IDatabaseService {
         ...data,
         id: `asp-${Date.now()}`,
         status: ApprovalStatus.PENDING,
+        paymentStatus: PaymentStatus.UNPAID,
         createdAt: Date.now()
     };
     aspirants.push(newAspirant);
@@ -441,17 +449,41 @@ class MockDB implements IDatabaseService {
     return this.getItems<Aspirant>(ASPIRANTS_KEY);
   }
 
+  async markPaymentAsPending(aspirantId: string): Promise<void> {
+      const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
+      const idx = aspirants.findIndex(a => a.id === aspirantId);
+      if (idx !== -1) {
+          aspirants[idx].paymentStatus = PaymentStatus.PENDING;
+          this.setItems(ASPIRANTS_KEY, aspirants);
+      }
+  }
+
+  async verifyPayment(adminId: string, aspirantId: string): Promise<void> {
+      const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
+      const idx = aspirants.findIndex(a => a.id === aspirantId);
+      if (idx !== -1) {
+          aspirants[idx].paymentStatus = PaymentStatus.PAID;
+          this.setItems(ASPIRANTS_KEY, aspirants);
+          this.addAudit(adminId, UserRole.ADMIN, 'payment_verified', `Payment verified for ${aspirants[idx].fullName}`, aspirantId);
+      }
+  }
+
   async processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void> {
     const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
     const idx = aspirants.findIndex(a => a.id === aspirantId);
     if (idx === -1) throw new Error("Aspirant not found");
 
     const aspirant = aspirants[idx];
-    aspirant.status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
-    this.setItems(ASPIRANTS_KEY, aspirants);
-
+    
     if (approved) {
-        // 1. Promote to Candidate (Transfer details)
+        // Enforce payment check
+        if (aspirant.paymentStatus !== PaymentStatus.PAID) {
+            throw new Error("Cannot approve aspirant. Payment has not been verified.");
+        }
+
+        aspirant.status = ApprovalStatus.APPROVED;
+        
+        // 1. Promote to Candidate
         await this.addCandidate(adminId, {
             name: aspirant.fullName,
             matricNo: aspirant.matricNo,
@@ -464,7 +496,7 @@ class MockDB implements IDatabaseService {
             resultUrl: aspirant.resultUrl
         });
 
-        // 2. Approve User Account (so they can log in)
+        // 2. Approve User Account
         const users = this.getItems<User>(USERS_KEY);
         const uIdx = users.findIndex(u => u.matricNo === aspirant.matricNo);
         if (uIdx !== -1) {
@@ -474,8 +506,11 @@ class MockDB implements IDatabaseService {
 
         this.addAudit(adminId, UserRole.ADMIN, 'aspirant_approved', `Promoted ${aspirant.fullName} to Candidate`, aspirantId);
     } else {
+        aspirant.status = ApprovalStatus.REJECTED;
         this.addAudit(adminId, UserRole.ADMIN, 'aspirant_rejected', `Rejected aspirant ${aspirant.fullName}`, aspirantId);
     }
+    
+    this.setItems(ASPIRANTS_KEY, aspirants);
   }
   // ------------------------
 
@@ -509,7 +544,7 @@ class MockDB implements IDatabaseService {
       this.setItems(CANDIDATES_KEY, candidates);
   }
 
-  async castVote(studentId: string, candidateId: string, position: Position): Promise<Vote> {
+  async castVote(studentId: string, candidateId: string, position: string): Promise<Vote> {
     await delay(600);
     const settings = await this.getElectionSettings();
     const now = new Date();
@@ -563,7 +598,6 @@ class MockDB implements IDatabaseService {
       await delay(300);
       const users = this.getItems<User>(USERS_KEY);
       const votes = this.getItems<Vote>(VOTES_KEY);
-      // Get unique students who voted
       const votingStudentIds = new Set(votes.map(v => v.studentId));
       
       const levelCounts: Record<string, number> = {};
@@ -594,7 +628,6 @@ class SupabaseDB implements IDatabaseService {
   }
 
   public subscribe(event: string, callback: Listener): () => void {
-    // Basic Realtime for Supabase
     if (event === 'vote_update') {
       const channel = supabase
         .channel('public:votes')
@@ -670,16 +703,24 @@ class SupabaseDB implements IDatabaseService {
     await supabase.from('departments').delete().eq('name', name);
   }
 
-  async getPositions(): Promise<string[]> {
-    const { data, error } = await supabase.from('positions').select('name');
+  async getPositions(): Promise<Position[]> {
+    const { data, error } = await supabase.from('positions').select('name, price, eligible_level');
     if (error) return [];
-    return data.map((d: any) => d.name);
+    return data.map((d: any) => ({
+        name: d.name,
+        price: Number(d.price) || 0,
+        eligibleLevel: d.eligible_level || 'All'
+    }));
   }
 
-  async addPosition(adminId: string, name: string): Promise<string> {
-    const { error } = await supabase.from('positions').insert({ name });
+  async addPosition(adminId: string, name: string, price: number, level: string): Promise<Position> {
+    const { error } = await supabase.from('positions').insert({ 
+        name, 
+        price, 
+        eligible_level: level 
+    });
     if (error) throw new Error(error.message);
-    return name;
+    return { name, price, eligibleLevel: level };
   }
 
   async removePosition(adminId: string, name: string): Promise<void> {
@@ -690,10 +731,8 @@ class SupabaseDB implements IDatabaseService {
     try {
       const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
       
-      // AUTO-SEED ADMIN LOGIC: 
       if ((error || !data) && matricNo === 'admin' && password === 'admin123') {
           console.log("Admin account not found. Attempting to create default admin...");
-          
           const { data: newAdmin, error: createError } = await supabase.from('users').insert({
             full_name: 'NACOSS Administrator',
             matric_no: 'admin',
@@ -705,7 +744,6 @@ class SupabaseDB implements IDatabaseService {
           }).select().single();
           
           if (newAdmin) {
-              console.log("Admin created successfully.");
               return this.mapUser(newAdmin);
           } else {
               console.error("Failed to auto-seed admin:", createError);
@@ -714,56 +752,42 @@ class SupabaseDB implements IDatabaseService {
       }
 
       if (error || !data) throw new Error('Invalid credentials (User not found)');
-      
       if (data.password_hash !== password) throw new Error('Invalid credentials (Wrong password)');
-
       if (data.role === UserRole.STUDENT && data.status !== ApprovalStatus.APPROVED) {
         if (data.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${data.rejection_reason}`);
         throw new Error('Account pending approval');
       }
-
       return this.mapUser(data);
     } catch (e: any) {
         console.error("Login Error:", e);
         if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
-             throw new Error("Network Error: Could not connect to Database. Check your Vercel API URL configuration. You may have pasted the API Key into the URL field.");
+             throw new Error("Network Error: Could not connect to Database. Check configuration.");
         }
         throw new Error(e.message || 'Connection failed');
     }
   }
 
   async register(data: Omit<User, 'id' | 'role' | 'status' | 'createdAt'>): Promise<User> {
-    // 1. Check if user already exists
-    const { data: existingUser, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('matric_no', data.matricNo)
-        .single();
+    const { data: existingUser } = await supabase
+        .from('users').select('*').eq('matric_no', data.matricNo).single();
     
-    // Payload for insertion or update
     const userPayload = {
       full_name: data.fullName,
       matric_no: data.matricNo,
       department: data.department,
       level: data.level,
       password_hash: data.passwordHash,
-      id_card_url: data.idCardUrl, // Base64 string for now
+      id_card_url: data.idCardUrl,
       role: UserRole.STUDENT,
       status: ApprovalStatus.PENDING,
       created_at: Date.now(),
-      rejection_reason: null // Clear any previous rejection reason
+      rejection_reason: null
     };
 
     if (existingUser) {
         if (existingUser.status === ApprovalStatus.REJECTED) {
-            // Allow re-registration: Update the existing record
             const { data: updated, error: updateError } = await supabase
-                .from('users')
-                .update(userPayload)
-                .eq('matric_no', data.matricNo)
-                .select()
-                .single();
-                
+                .from('users').update(userPayload).eq('matric_no', data.matricNo).select().single();
             if (updateError) throw new Error(updateError.message);
             await sendEmail('admins@nacoss.edu.ng', 'Re-Registration', `User ${data.fullName} re-registered`);
             return this.mapUser(updated);
@@ -772,7 +796,6 @@ class SupabaseDB implements IDatabaseService {
         }
     }
 
-    // New Registration
     const { data: inserted, error } = await supabase.from('users').insert(userPayload).select().single();
     if (error) {
       if (error.code === '23505') throw new Error('Matric number already registered');
@@ -781,7 +804,6 @@ class SupabaseDB implements IDatabaseService {
       }
       throw new Error(error.message);
     }
-    
     await sendEmail('admins@nacoss.edu.ng', 'New Reg', `User ${data.fullName}`);
     return this.mapUser(inserted);
   }
@@ -795,7 +817,6 @@ class SupabaseDB implements IDatabaseService {
     const status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
     await supabase.from('users').update({ status, rejection_reason: reason }).eq('id', userId);
     
-    // Fetch user to get email/details
     const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
     if (user) {
        await sendEmail(user.email || 'student', approved ? 'Approved' : 'Rejected', 'Status update');
@@ -804,7 +825,7 @@ class SupabaseDB implements IDatabaseService {
   }
 
   // --- ASPIRANT METHODS (Supabase) ---
-  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt'>): Promise<Aspirant> {
+  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant> {
     const { data: existing } = await supabase.from('aspirants').select('*').eq('matric_no', data.matricNo).single();
     if (existing) throw new Error("You have already applied.");
 
@@ -819,6 +840,7 @@ class SupabaseDB implements IDatabaseService {
         passport_url: data.passportUrl,
         result_url: data.resultUrl,
         status: ApprovalStatus.PENDING,
+        payment_status: PaymentStatus.UNPAID,
         created_at: Date.now()
     };
 
@@ -827,17 +849,18 @@ class SupabaseDB implements IDatabaseService {
         if (error.message?.includes('column "level" of relation "aspirants" does not exist')) {
           throw new Error('Database Error: Missing "level" column. Please run the SQL migration script.');
         }
+        if (error.message?.includes('column "payment_status"')) {
+            throw new Error('Database Error: Missing "payment_status" column. Please run the SQL migration script.');
+        }
         throw new Error(error.message);
     }
     return this.mapAspirant(inserted);
   }
 
-  // Combined Registration for Supabase
   async registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string
   }): Promise<void> {
-      // 1. Register User (Using existing register logic which handles errors)
       await this.register({
           fullName: data.fullName,
           matricNo: data.matricNo,
@@ -846,8 +869,6 @@ class SupabaseDB implements IDatabaseService {
           passwordHash: data.passwordHash,
           idCardUrl: data.idCardUrl
       });
-      
-      // 2. Register Aspirant (If user registration succeeds)
       try {
         await this.registerAspirant({
             fullName: data.fullName,
@@ -861,8 +882,6 @@ class SupabaseDB implements IDatabaseService {
             resultUrl: data.resultUrl
         });
       } catch (e: any) {
-          // If aspirant creation fails, we technically have a "stranded" user account.
-          // For now, we just throw the error. In a real app, we might rollback.
           console.error("Aspirant creation failed after user created:", e);
           throw e; 
       }
@@ -874,9 +893,26 @@ class SupabaseDB implements IDatabaseService {
       return (data || []).map(this.mapAspirant);
   }
 
+  async markPaymentAsPending(aspirantId: string): Promise<void> {
+      await supabase.from('aspirants').update({ payment_status: PaymentStatus.PENDING }).eq('id', aspirantId);
+  }
+
+  async verifyPayment(adminId: string, aspirantId: string): Promise<void> {
+      await supabase.from('aspirants').update({ payment_status: PaymentStatus.PAID }).eq('id', aspirantId);
+      this.logAudit(adminId, UserRole.ADMIN, 'payment_verified', 'Verified aspirant payment', aspirantId);
+  }
+
   async processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void> {
       const status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
       
+      // Fetch first to check payment
+      if (approved) {
+          const { data: asp } = await supabase.from('aspirants').select('*').eq('id', aspirantId).single();
+          if (asp && asp.payment_status !== PaymentStatus.PAID) {
+              throw new Error("Cannot approve aspirant. Payment has not been verified.");
+          }
+      }
+
       const { data: aspirant, error } = await supabase
         .from('aspirants')
         .update({ status })
@@ -887,7 +923,6 @@ class SupabaseDB implements IDatabaseService {
       if (error) throw new Error(error.message);
 
       if (approved && aspirant) {
-           // 1. Promote to Candidate (Transfer Details)
            await this.addCandidate(adminId, {
             name: aspirant.full_name,
             matricNo: aspirant.matric_no,
@@ -900,13 +935,10 @@ class SupabaseDB implements IDatabaseService {
             resultUrl: aspirant.result_url
            });
 
-           // 2. Approve User Account for Login (Important!)
            const { error: userError } = await supabase
             .from('users')
             .update({ status: ApprovalStatus.APPROVED })
             .eq('matric_no', aspirant.matric_no);
-            
-           if (userError) console.warn("Failed to approve user account linked to aspirant:", userError);
       }
       this.logAudit(adminId, UserRole.ADMIN, approved ? 'approve_aspirant' : 'reject_aspirant', `Processed aspirant ${aspirant?.full_name}`, aspirantId);
   }
@@ -924,11 +956,12 @@ class SupabaseDB implements IDatabaseService {
           passportUrl: a.passport_url,
           resultUrl: a.result_url,
           status: a.status,
+          paymentStatus: a.payment_status || PaymentStatus.UNPAID,
           createdAt: Number(a.created_at)
       };
   }
-  // ------------------------------------
 
+  // Voting Methods (Same as before but mapped correctly)
   async getCandidates(): Promise<Candidate[]> {
     const { data } = await supabase.from('candidates').select('*');
     return (data || []).map((c: any) => ({
@@ -958,13 +991,7 @@ class SupabaseDB implements IDatabaseService {
       result_url: candidate.resultUrl
     };
     const { data, error } = await supabase.from('candidates').insert(dbCand).select().single();
-    if (error) {
-        if (error.message?.includes('column "level" of relation "candidates" does not exist')) {
-            throw new Error('Database Error: Missing "level", "cgpa" or "result_url" in candidates table. Please run the SQL migration script.');
-        }
-        throw new Error(error.message);
-    }
-    
+    if (error) throw new Error(error.message);
     this.logAudit(adminId, UserRole.ADMIN, 'add_candidate', `Added ${candidate.name}`, data.id);
     return { ...candidate, id: data.id };
   }
@@ -977,9 +1004,7 @@ class SupabaseDB implements IDatabaseService {
        position: candidate.position,
        manifesto: candidate.manifesto,
        photo_url: candidate.photoUrl
-       // Note: Typically we don't allow editing CGPA/Result here, but could be added
     }).eq('id', candidate.id);
-    
     if(error) throw new Error(error.message);
     return candidate;
   }
@@ -988,11 +1013,10 @@ class SupabaseDB implements IDatabaseService {
     await supabase.from('candidates').delete().eq('id', candidateId);
   }
 
-  async castVote(studentId: string, candidateId: string, position: Position): Promise<Vote> {
+  async castVote(studentId: string, candidateId: string, position: string): Promise<Vote> {
     const settings = await this.getElectionSettings();
     if (!settings.isVotingEnabled) throw new Error('Voting is closed');
 
-    // Check existing vote
     const { data: existing } = await supabase.from('votes')
       .select('*').eq('student_id', studentId).eq('position', position).single();
     if (existing) throw new Error('Already voted for this position');
@@ -1003,10 +1027,8 @@ class SupabaseDB implements IDatabaseService {
       position: position,
       timestamp: Date.now()
     };
-    
     const { data, error } = await supabase.from('votes').insert(voteData).select().single();
     if (error) throw new Error(error.message);
-    
     return {
       id: data.id,
       studentId: data.student_id,
@@ -1109,5 +1131,4 @@ class SupabaseDB implements IDatabaseService {
   }
 }
 
-// Export the selected database service
 export const db = USE_MOCK_DB ? new MockDB() : new SupabaseDB();

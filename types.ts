@@ -11,7 +11,17 @@ export enum ApprovalStatus {
   REJECTED = 'rejected'
 }
 
-export type Position = string;
+export enum PaymentStatus {
+  UNPAID = 'unpaid',
+  PENDING = 'pending',
+  PAID = 'paid'
+}
+
+export interface Position {
+  name: string;
+  price: number;
+  eligibleLevel: string;
+}
 
 export interface User {
   id: string;
@@ -33,7 +43,7 @@ export interface Candidate {
   name: string;
   matricNo: string;
   department: string;
-  position: Position;
+  position: string; // Just the name reference
   manifesto: string;
   photoUrl: string;
   // Extra fields from Aspirant
@@ -48,12 +58,13 @@ export interface Aspirant {
   matricNo: string;
   department: string;
   level: string;
-  position: Position;
+  position: string; // Just the name reference
   cgpa: string;
   manifesto: string;
   passportUrl: string; // For the candidate card
   resultUrl: string; // For admin verification of CGPA
   status: ApprovalStatus;
+  paymentStatus: PaymentStatus;
   createdAt: number;
 }
 
@@ -61,7 +72,7 @@ export interface Vote {
   id: string;
   studentId: string;
   candidateId: string;
-  position: Position;
+  position: string; // Just the name reference
   timestamp: number;
 }
 

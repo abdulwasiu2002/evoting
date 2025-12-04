@@ -39,7 +39,6 @@ export const Register: React.FC = () => {
             }
         } catch (e) {
             console.warn("Failed to load departments from DB, using fallback list.", e);
-            // Fallback list to ensure UI doesn't get stuck on "Loading..."
             const fallbackDepts = [
                 'Computer Science',
                 'Software Engineering',
@@ -57,7 +56,6 @@ export const Register: React.FC = () => {
     fetchDepts();
   }, []);
 
-  // Helper to compress image
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -67,7 +65,7 @@ export const Register: React.FC = () => {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 500; // Reduced max width
+          const MAX_WIDTH = 500;
           const MAX_HEIGHT = 500;
           let width = img.width;
           let height = img.height;
@@ -89,7 +87,6 @@ export const Register: React.FC = () => {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          // Compress to JPEG at 0.5 quality
           const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
           resolve(dataUrl);
         };
@@ -103,7 +100,6 @@ export const Register: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        // Show loading state for image processing if needed
         const compressedDataUrl = await compressImage(file);
         setPreview(compressedDataUrl);
         setError(null);

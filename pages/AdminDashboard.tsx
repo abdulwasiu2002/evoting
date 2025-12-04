@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant } from '../types';
+import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
 import { Button } from '../components/Button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -14,7 +14,7 @@ export const AdminDashboard: React.FC = () => {
   const [aspirants, setAspirants] = useState<Aspirant[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [positions, setPositions] = useState<string[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [departmentStats, setDepartmentStats] = useState<{name: string, count: number}[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -32,7 +32,7 @@ export const AdminDashboard: React.FC = () => {
   const [viewingCandidate, setViewingCandidate] = useState<Candidate | null>(null);
 
   // Position Management State
-  const [newPosition, setNewPosition] = useState('');
+  const [newPosition, setNewPosition] = useState({ name: '', price: '0', level: 'All' });
 
   // Department Management State
   const [newDepartment, setNewDepartment] = useState('');
@@ -59,7 +59,9 @@ export const AdminDashboard: React.FC = () => {
 
   const fetchAspirants = async () => {
     const asps = await db.getAspirants();
-    setAspirants(asps.filter(a => a.status === 'pending'));
+    // Filter out approved ones from pending view, or show all? 
+    // Let's show all that are not REJECTED for now to manage payments
+    setAspirants(asps.filter(a => a.status !== 'rejected'));
   };
 
   const fetchCandidates = async () => {
@@ -179,6 +181,14 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleAspirantApproval = async (aspirantId: string, approve: boolean) => {
+      if (approve) {
+           const asp = aspirants.find(a => a.id === aspirantId);
+           if (asp && asp.paymentStatus !== PaymentStatus.PAID) {
+               alert("Cannot approve: Payment not verified. Please verify payment first.");
+               return;
+           }
+      }
+
       if (confirm(approve ? "Approve this aspirant? They will immediately become a candidate visible to voters." : "Reject this application?")) {
           try {
               await db.processAspirant('admin-1', aspirantId, approve);
@@ -190,12 +200,22 @@ export const AdminDashboard: React.FC = () => {
       }
   };
 
+  const handleVerifyPayment = async (aspirantId: string) => {
+      if (confirm("Confirm that you have received payment from this aspirant?")) {
+          await db.verifyPayment('admin-1', aspirantId);
+          fetchAspirants();
+          if (reviewingAspirant?.id === aspirantId) {
+              setReviewingAspirant(prev => prev ? ({...prev, paymentStatus: PaymentStatus.PAID}) : null);
+          }
+      }
+  };
+
   const openAddCandidate = () => {
     setCandidateForm({
       name: '',
       matricNo: '',
       department: departments[0] || '',
-      position: positions[0] || '',
+      position: positions[0]?.name || '',
       manifesto: '',
       photoUrl: ''
     });
@@ -255,10 +275,10 @@ export const AdminDashboard: React.FC = () => {
 
   const handleAddPosition = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPosition.trim()) return;
+    if (!newPosition.name.trim()) return;
     try {
-      await db.addPosition('admin-1', newPosition.trim());
-      setNewPosition('');
+      await db.addPosition('admin-1', newPosition.name.trim(), Number(newPosition.price), newPosition.level);
+      setNewPosition({ name: '', price: '0', level: 'All' });
       fetchPositions();
     } catch (err: any) {
       alert(err.message);
@@ -312,19 +332,13 @@ export const AdminDashboard: React.FC = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         
-        // --- 1. Header & Branding (Green Background) ---
         doc.setFillColor(16, 185, 129); // Emerald-500
         doc.rect(0, 0, pageWidth, 40, 'F');
         
-        // Try to load NACOSS Logo
         try {
             const logoUrl = "https://nacos.org.ng/images/NNL.png";
-            // Check if we can fetch it (CORS might block in some browsers/env)
-            // For PDF generation in browser, we often need Base64 or a proxied image.
-            // We'll try adding the image directly; if it fails, fallback to drawing.
             doc.addImage(logoUrl, 'PNG', 14, 5, 30, 30, undefined, 'FAST');
         } catch (e) {
-            // Fallback Logo (Computer/Chip Icon)
             doc.setFillColor(255, 255, 255);
             doc.roundedRect(14, 10, 20, 20, 2, 2, 'F'); 
             doc.setFillColor(16, 185, 129);
@@ -332,7 +346,6 @@ export const AdminDashboard: React.FC = () => {
             doc.rect(19, 25, 10, 2, 'F'); 
         }
 
-        // Title
         doc.setFontSize(22);
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
@@ -342,24 +355,19 @@ export const AdminDashboard: React.FC = () => {
         doc.setFont("helvetica", "normal");
         doc.text("Nigeria Association of Computer Science Students", 50, 26);
         doc.text("Official Election Report", 50, 31);
-        
-        // Date
-        doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 31, { align: 'right' });
 
-        // --- 2. Executive Summary ---
-        doc.setTextColor(30, 41, 59); // Slate-800
+        doc.setTextColor(30, 41, 59);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Executive Summary", 14, 55);
 
-        // Stats Box
         const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
         const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
         const turnout = totalRegistered > 0 ? Math.round((totalVotes / (totalRegistered * positions.length || 1)) * 100) : 0;
 
-        doc.setFillColor(241, 245, 249); // Slate-100
-        doc.setDrawColor(203, 213, 225); // Slate-300
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(203, 213, 225);
         doc.roundedRect(14, 60, pageWidth - 28, 25, 2, 2, 'FD');
 
         doc.setFontSize(10);
@@ -368,17 +376,16 @@ export const AdminDashboard: React.FC = () => {
         doc.text(`Voter Turnout`, 140, 70);
 
         doc.setFontSize(16);
-        doc.setTextColor(16, 185, 129); // Emerald-600
+        doc.setTextColor(16, 185, 129);
         doc.text(`${totalRegistered}`, 20, 80);
         doc.text(`${totalVotes}`, 80, 80);
         doc.text(`${turnout}%`, 140, 80);
 
         let finalY = 95;
 
-        // --- Table Styling Configuration ---
         const tableTheme = {
-            headStyles: { fillColor: [4, 120, 87] as any, textColor: 255, fontStyle: 'bold' as any }, // Emerald-700
-            alternateRowStyles: { fillColor: [236, 253, 245] as any }, // Emerald-50
+            headStyles: { fillColor: [4, 120, 87] as any, textColor: 255, fontStyle: 'bold' as any },
+            alternateRowStyles: { fillColor: [236, 253, 245] as any },
             bodyStyles: { textColor: 50 },
             margin: { left: 14, right: 14 },
         };
@@ -389,7 +396,6 @@ export const AdminDashboard: React.FC = () => {
             else throw new Error("PDF Table plugin not loaded correctly.");
         };
 
-        // --- 3. Election Results Table ---
         doc.setTextColor(30, 41, 59);
         doc.setFontSize(14);
         doc.text("Election Results", 14, finalY);
@@ -409,10 +415,8 @@ export const AdminDashboard: React.FC = () => {
         
         finalY = (doc as any).lastAutoTable.finalY + 15;
 
-        // Fetch breakdown stats
         const breakdown = await db.getVoterBreakdown();
 
-        // --- 4. Turnout by Level ---
         doc.text("Voter Turnout by Level", 14, finalY);
         finalY += 5;
 
@@ -425,8 +429,6 @@ export const AdminDashboard: React.FC = () => {
         });
         finalY = (doc as any).lastAutoTable.finalY + 15;
 
-        // --- 5. Turnout by Department ---
-        // Check if we need a new page
         if (finalY > pageHeight - 40) {
             doc.addPage();
             finalY = 20;
@@ -443,7 +445,6 @@ export const AdminDashboard: React.FC = () => {
             ...tableTheme
         });
 
-        // Footer
         const totalPages = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
@@ -547,7 +548,16 @@ export const AdminDashboard: React.FC = () => {
                                          <img src={asp.passportUrl} className="h-full w-full object-cover" />
                                      </div>
                                      <div>
-                                         <p className="text-lg font-medium text-purple-600">{asp.fullName} <span className="text-xs text-gray-500 bg-gray-100 px-1 rounded">CGPA: {asp.cgpa}</span></p>
+                                         <div className="flex items-center gap-2">
+                                             <p className="text-lg font-medium text-purple-600">{asp.fullName}</p>
+                                             {asp.status === 'approved' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Candidate</span>}
+                                             {asp.paymentStatus === PaymentStatus.PAID ? 
+                                                 <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded">Paid</span> :
+                                                 asp.paymentStatus === PaymentStatus.PENDING ?
+                                                 <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Payment Verification Pending</span> :
+                                                 <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">Unpaid</span>
+                                             }
+                                         </div>
                                          <p className="text-sm text-gray-600">Contesting for: <strong>{asp.position}</strong></p>
                                          <p className="text-xs text-gray-500">{asp.level} Level • {asp.department}</p>
                                      </div>
@@ -561,7 +571,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'results' && (
+      {activeTab === 'results' && ( /* ... existing results tab content ... */ 
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="lg:w-3/4 bg-white p-6 rounded shadow">
                  <div className="bg-emerald-50 border border-emerald-100 rounded p-4 mb-6 flex justify-between items-center">
@@ -607,7 +617,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
       )}
 
-      {activeTab === 'analytics' && (
+      {activeTab === 'analytics' && ( /* ... existing analytics tab ... */ 
           <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">
@@ -653,7 +663,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
       )}
 
-      {activeTab === 'candidates' && (
+      {activeTab === 'candidates' && ( /* ... existing candidates tab ... */
         <div>
           <div className="flex justify-end mb-4">
             <Button onClick={openAddCandidate}>+ Add New Candidate</Button>
@@ -685,32 +695,77 @@ export const AdminDashboard: React.FC = () => {
         <div className="space-y-6">
            <div className="bg-white p-6 rounded shadow">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Position</h3>
-              <form onSubmit={handleAddPosition} className="flex gap-4">
-                  <input 
-                    type="text" 
-                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 border p-2"
-                    placeholder="e.g. Director of Socials"
-                    value={newPosition}
-                    onChange={(e) => setNewPosition(e.target.value)}
-                  />
-                  <Button type="submit">Add Position</Button>
+              <form onSubmit={handleAddPosition} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  <div className="md:col-span-2">
+                      <label className="block text-xs text-gray-500 uppercase">Position Name</label>
+                      <input 
+                        type="text" 
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 border p-2"
+                        placeholder="e.g. Director of Socials"
+                        value={newPosition.name}
+                        onChange={(e) => setNewPosition({...newPosition, name: e.target.value})}
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-xs text-gray-500 uppercase">Form Price (₦)</label>
+                      <input 
+                        type="number" 
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 border p-2"
+                        placeholder="5000"
+                        value={newPosition.price}
+                        onChange={(e) => setNewPosition({...newPosition, price: e.target.value})}
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-xs text-gray-500 uppercase">Eligible Level</label>
+                      <select 
+                         className="w-full rounded-md border-gray-300 shadow-sm border p-2 bg-white"
+                         value={newPosition.level}
+                         onChange={(e) => setNewPosition({...newPosition, level: e.target.value})}
+                      >
+                          <option value="All">All Levels</option>
+                          <option value="ND I">ND I</option>
+                          <option value="ND II">ND II</option>
+                          <option value="HND I">HND I</option>
+                          <option value="HND II">HND II</option>
+                      </select>
+                  </div>
+                  <div className="md:col-span-1">
+                      <Button type="submit" className="w-full">Add Position</Button>
+                  </div>
               </form>
            </div>
            
            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                  {positions.map(pos => (
-                      <li key={pos} className="p-4 flex justify-between items-center">
-                          <span className="text-gray-900 font-medium">{pos}</span>
-                          <Button size="sm" variant="danger" onClick={() => handleRemovePosition(pos)}>Remove</Button>
-                      </li>
-                  ))}
-              </ul>
+              <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                      <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Level</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                      {positions.map(pos => (
+                          <tr key={pos.name}>
+                              <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">{pos.name}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-gray-500">₦{pos.price.toLocaleString()}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                                  <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">{pos.eligibleLevel}</span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right">
+                                  <Button size="sm" variant="danger" onClick={() => handleRemovePosition(pos.name)}>Remove</Button>
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
            </div>
         </div>
       )}
 
-      {activeTab === 'departments' && (
+      {activeTab === 'departments' && ( /* ... existing departments tab ... */ 
         <div className="space-y-6">
            <div className="bg-white p-6 rounded shadow">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Department</h3>
@@ -739,7 +794,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'audit' && (
+      {activeTab === 'audit' && ( /* ... existing audit tab ... */ 
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
            <table className="min-w-full divide-y divide-gray-200">
                <thead className="bg-gray-50">
@@ -772,7 +827,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'settings' && (
+      {activeTab === 'settings' && ( /* ... existing settings tab ... */
           <div className="bg-white p-6 rounded shadow space-y-8">
               <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Election Schedule</h3>
@@ -812,8 +867,7 @@ export const AdminDashboard: React.FC = () => {
                       <Button type="submit" isLoading={loading}>Save Settings</Button>
                   </form>
               </div>
-
-              <div>
+               <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Database Connection</h3>
                   <div className="bg-gray-50 p-4 rounded border border-gray-200">
                        <p className="text-sm text-gray-600 mb-4">
@@ -863,7 +917,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
       )}
 
-      {/* Candidate Modal */}
+      {/* Candidate Modal (Update position dropdown to handle object if needed, though we just use name) */}
       {isCandidateModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -891,7 +945,7 @@ export const AdminDashboard: React.FC = () => {
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Position</label>
                                         <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={candidateForm.position} onChange={e => setCandidateForm({...candidateForm, position: e.target.value})}>
-                                            {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                                            {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                                         </select>
                                     </div>
                                 </div>
@@ -919,7 +973,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* View Candidate Profile Modal */}
-      {viewingCandidate && (
+      {viewingCandidate && ( /* ... same as before ... */
           <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
                <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setViewingCandidate(null)}></div>
@@ -971,7 +1025,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* User Verification Modal */}
-      {verifyingUser && (
+      {verifyingUser && ( /* ... same as before ... */
         <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setVerifyingUser(null)}></div>
@@ -1031,6 +1085,28 @@ export const AdminDashboard: React.FC = () => {
                    <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
                        <div className="bg-white px-4 pt-5 pb-4 sm:p-6">
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Review Aspirant Application</h3>
+                            
+                            {/* Payment Status Alert */}
+                            {reviewingAspirant.paymentStatus !== PaymentStatus.PAID && (
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                                    <div className="flex">
+                                        <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-sm text-yellow-700">
+                                                <span className="font-bold">Payment Not Verified.</span> You must verify payment before approving this application.
+                                            </p>
+                                            {reviewingAspirant.paymentStatus === PaymentStatus.PENDING && (
+                                                <Button size="sm" className="mt-2" onClick={() => handleVerifyPayment(reviewingAspirant.id)}>Confirm Payment Receipt</Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex flex-col md:flex-row gap-6">
                                 {/* Images */}
                                 <div className="md:w-1/2 space-y-4">
@@ -1060,7 +1136,11 @@ export const AdminDashboard: React.FC = () => {
                                     </div>
 
                                     <div className="pt-4 flex flex-col gap-2">
-                                        <Button className="w-full" onClick={() => handleAspirantApproval(reviewingAspirant.id, true)}>
+                                        <Button 
+                                            className="w-full" 
+                                            disabled={reviewingAspirant.paymentStatus !== PaymentStatus.PAID}
+                                            onClick={() => handleAspirantApproval(reviewingAspirant.id, true)}
+                                        >
                                             ✓ Approve & Promote to Candidate
                                         </Button>
                                         <Button variant="danger" className="w-full" onClick={() => handleAspirantApproval(reviewingAspirant.id, false)}>

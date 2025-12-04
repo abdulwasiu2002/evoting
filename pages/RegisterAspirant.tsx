@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { db } from '../services/mockDb';
+import { Position } from '../types';
 
 export const RegisterAspirant: React.FC = () => {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ export const RegisterAspirant: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Lists
-  const [positions, setPositions] = useState<string[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const LEVELS = ['ND I', 'ND II', 'HND I', 'HND II'];
 
@@ -40,7 +41,7 @@ export const RegisterAspirant: React.FC = () => {
         const [p, d] = await Promise.all([db.getPositions(), db.getDepartments()]);
         setPositions(p);
         setDepartments(d);
-        if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0] }));
+        if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0].name }));
         if (d.length > 0) setFormData(prev => ({ ...prev, department: d[0] }));
       } catch (e) {
           console.error(e);
@@ -136,7 +137,7 @@ export const RegisterAspirant: React.FC = () => {
             resultUrl: resultPreview
         });
 
-        alert("Application submitted successfully! Please wait for admin approval. Once approved, you can log in to your dashboard.");
+        alert("Application submitted successfully! Please log in to your dashboard to complete the payment for your nomination form.");
         navigate('/');
     } catch (err: any) {
         setError(err.message || "Submission failed");
@@ -144,6 +145,8 @@ export const RegisterAspirant: React.FC = () => {
         setLoading(false);
     }
   };
+
+  const selectedPosPrice = positions.find(p => p.name === formData.position)?.price || 0;
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
@@ -253,8 +256,9 @@ export const RegisterAspirant: React.FC = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Position</label>
                                     <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}>
-                                        {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                                        {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                                     </select>
+                                    <p className="text-xs text-purple-700 mt-1 font-medium">Form Price: ₦{selectedPosPrice.toLocaleString()}</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">CGPA</label>
