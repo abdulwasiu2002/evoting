@@ -14,8 +14,10 @@ interface Props {
 const loadImage = (url: string): Promise<string | null> => {
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = "Anonymous"; // Try to handle CORS
-    img.src = url;
+    img.crossOrigin = "Anonymous"; 
+    // Use CORS proxy to bypass restriction for external images
+    img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = img.width;
@@ -29,8 +31,22 @@ const loadImage = (url: string): Promise<string | null> => {
       }
     };
     img.onerror = () => {
-      console.warn("Could not load image for PDF:", url);
-      resolve(null);
+      console.warn("Failed to load image via proxy:", url);
+      // Fallback: Try direct load (might work if server allows CORS)
+      const directImg = new Image();
+      directImg.crossOrigin = "Anonymous";
+      directImg.src = url;
+      directImg.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = directImg.width;
+          canvas.height = directImg.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+              ctx.drawImage(directImg, 0, 0);
+              resolve(canvas.toDataURL("image/png"));
+          } else resolve(null);
+      };
+      directImg.onerror = () => resolve(null);
     };
   });
 };
@@ -258,8 +274,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       // -- PASSPORT BOX --
       doc.setDrawColor(0, 0, 0);
       doc.rect(140, 60, 40, 45); // x, y, w, h
-      // If we have a passport in the profile, we could add it, but requirement is just the box for physical affixing if needed,
-      // or we can add it if available. Let's add it if it loads properly later.
       
       // -- FIELDS --
       let y = 85;

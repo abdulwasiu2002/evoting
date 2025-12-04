@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
@@ -355,8 +356,9 @@ export const AdminDashboard: React.FC = () => {
         try {
             const logoUrl = "https://nacos.org.ng/img/about.jpg";
             const img = new Image();
-            img.src = logoUrl;
             img.crossOrigin = "Anonymous";
+            // Use CORS proxy here too
+            img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(logoUrl)}`;
             await new Promise((resolve) => {
                 img.onload = () => resolve(true);
                 img.onerror = () => resolve(false);
