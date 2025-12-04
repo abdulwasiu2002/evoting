@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
@@ -354,8 +353,15 @@ export const AdminDashboard: React.FC = () => {
         doc.rect(0, 0, pageWidth, 40, 'F');
         
         try {
-            const logoUrl = "https://nacos.org.ng/images/NNL.png";
-            doc.addImage(logoUrl, 'PNG', 14, 5, 30, 30, undefined, 'FAST');
+            const logoUrl = "https://nacos.org.ng/img/about.jpg";
+            const img = new Image();
+            img.src = logoUrl;
+            img.crossOrigin = "Anonymous";
+            await new Promise((resolve) => {
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+            });
+            doc.addImage(img, 'JPEG', 14, 5, 30, 30, undefined, 'FAST');
         } catch (e) {
             doc.setFillColor(255, 255, 255);
             doc.roundedRect(14, 10, 20, 20, 2, 2, 'F'); 
@@ -1060,7 +1066,7 @@ export const AdminDashboard: React.FC = () => {
                                </div>
                                <button onClick={() => setViewingCandidate(null)} className="text-gray-400 hover:text-gray-500">
                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                               </button>
+                                </button>
                            </div>
                            
                            <div className="grid md:grid-cols-2 gap-6">

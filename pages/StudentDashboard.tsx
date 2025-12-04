@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User, Candidate, Position, Vote, ElectionSettings, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
@@ -9,6 +8,31 @@ import { jsPDF } from 'jspdf';
 interface Props {
   user: User;
 }
+
+// Helper function to load images (Base64) to bypass some PDF generation issues
+const loadImage = (url: string): Promise<string | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous"; // Try to handle CORS
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+      } else {
+          resolve(null);
+      }
+    };
+    img.onerror = () => {
+      console.warn("Could not load image for PDF:", url);
+      resolve(null);
+    };
+  });
+};
 
 export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -164,40 +188,113 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       }
   };
 
-  const downloadReceipt = () => {
+  const downloadReceipt = async () => {
       if (!myAspirantProfile) return;
+      
       const doc = new jsPDF();
       
-      // Receipt Design
-      doc.setFontSize(22);
-      doc.setTextColor(16, 185, 129); // Emerald
-      doc.text("NACOSS", 105, 20, { align: "center" });
+      // Load Images Async
+      const logoUrl = "https://nacos.org.ng/img/about.jpg";
+      const logoData = await loadImage(logoUrl);
       
-      doc.setFontSize(16);
+      const qrData = `NACOSS VALIDATED\nName: ${myAspirantProfile.fullName}\nMatric: ${myAspirantProfile.matricNo}\nPos: ${myAspirantProfile.position}\nStatus: PAID`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
+      const qrImageData = await loadImage(qrUrl);
+
+      // HEADER SECTION
+      if (logoData) {
+           doc.addImage(logoData, 'JPEG', 20, 10, 25, 25, undefined, 'FAST');
+      } else {
+          // Fallback logo
+          doc.setFillColor(16, 185, 129);
+          doc.circle(32, 22, 10, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(8);
+          doc.text("NACOSS", 26, 24);
+      }
+
+      doc.setFontSize(18);
+      doc.setTextColor(16, 185, 129); // Emerald Color
+      doc.setFont("helvetica", "bold");
+      doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENTS", 105, 20, { align: "center" });
+      
+      doc.setFontSize(24);
       doc.setTextColor(0, 0, 0);
-      doc.text("Nomination Form Receipt", 105, 30, { align: "center" });
+      doc.text("NACOSS", 105, 30, { align: "center" });
 
-      doc.setLineWidth(0.5);
-      doc.line(20, 35, 190, 35);
-
-      doc.setFontSize(12);
-      doc.text(`Aspirant Name: ${myAspirantProfile.fullName}`, 20, 50);
-      doc.text(`Matric No: ${myAspirantProfile.matricNo}`, 20, 60);
-      doc.text(`Position Applied: ${myAspirantProfile.position}`, 20, 70);
-      doc.text(`Payment Status: VERIFIED`, 20, 80);
-      doc.text(`Date Issued: ${new Date().toLocaleDateString()}`, 20, 90);
-      doc.text(`Reference ID: ${myAspirantProfile.id}`, 20, 100);
-
-      doc.setTextColor(16, 185, 129);
-      doc.setFontSize(20);
-      doc.text("PAID", 150, 70, { angle: -15 });
-      doc.rect(145, 55, 30, 20);
-
-      doc.setTextColor(0,0,0);
       doc.setFontSize(10);
-      doc.text("This document serves as your official proof of purchase for the nomination form.", 105, 130, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.text("THE FEDERAL POLYTECHNIC BIDA, NIGER STATE", 105, 36, { align: "center" });
+      doc.text("MOTTO: TOWARDS ADVANCED TECHNOLOGY", 105, 41, { align: "center" });
       
-      doc.save("NACOSS_Nomination_Receipt.pdf");
+      // Box around "Election Candidate Nomination Form"
+      doc.setDrawColor(0);
+      doc.rect(55, 48, 100, 12); 
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("ELECTION CANDIDATE", 105, 53, { align: "center" });
+      doc.text("NOMINATION FORM", 105, 58, { align: "center" });
+      
+      // Photo Box (Top Right)
+      doc.rect(160, 48, 35, 40);
+      doc.setFontSize(8);
+      doc.text("Passport", 170, 70);
+
+      // --- FORM FIELDS ---
+      let y = 75;
+      const lineHeight = 12;
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+
+      // Helper for underlined field
+      const addField = (label: string, value: string) => {
+          doc.text(label, 20, y);
+          doc.text(value, 60, y);
+          doc.line(60, y + 1, 150, y + 1); // Underline
+          y += lineHeight;
+      };
+
+      addField("FULLNAME:", myAspirantProfile.fullName.toUpperCase());
+      addField("MATRIC NUMBER:", myAspirantProfile.matricNo.toUpperCase());
+      addField("ADDRESS:", (myAspirantProfile.address || "").toUpperCase());
+      addField("LEVEL:", (myAspirantProfile.level || "").toUpperCase());
+      addField("POSITION:", myAspirantProfile.position.toUpperCase());
+      addField("GPA:", myAspirantProfile.cgpa);
+      addField("PHONE NUMBER:", (myAspirantProfile.phone || "").toUpperCase());
+      
+      // Manual Fields (Blank for user to fill)
+      addField("GUARANTOR:", "");
+      addField("GUARANTOR PHONE:", "");
+      
+      y += 10;
+      
+      // Signatures
+      doc.line(20, y + 30, 80, y + 30);
+      doc.text("Candidate Signature", 20, y + 35);
+      
+      doc.line(130, y + 30, 190, y + 30);
+      doc.text("Guarantor Signature", 130, y + 35);
+
+      y += 45;
+      
+      doc.line(20, y, 60, y);
+      doc.text("Date", 20, y + 5);
+
+      doc.line(130, y, 170, y);
+      doc.text("Date", 130, y + 5);
+
+      // QR Code (Bottom Center)
+      if (qrImageData) {
+         doc.addImage(qrImageData, "PNG", 90, 250, 30, 30); 
+      } else {
+          // Fallback box if API fails
+          doc.rect(90, 250, 30, 30);
+          doc.setFontSize(8);
+          doc.text("QR SCAN", 105, 265, { align: "center"});
+      }
+
+      doc.save("NACOSS_Nomination_Form.pdf");
   };
 
   const groupedCandidates = positions.map(position => ({
