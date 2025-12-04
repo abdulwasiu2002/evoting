@@ -41,7 +41,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   return (
     <div className="flex min-h-[80vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+        <div onClick={() => navigate('/')} className="flex justify-center items-center mb-4 text-sm text-gray-500 cursor-pointer hover:text-emerald-600 transition-colors">
+             <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+             Back to Home
+        </div>
+        <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
