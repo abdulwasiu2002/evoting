@@ -2,206 +2,349 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
 
+  // Mock Data for the Trading-style Chart
+  const chartData = [
+    { time: '09:00', votes: 120 },
+    { time: '10:00', votes: 230 },
+    { time: '11:00', votes: 180 },
+    { time: '12:00', votes: 450 },
+    { time: '13:00', votes: 320 },
+    { time: '14:00', votes: 580 },
+    { time: '15:00', votes: 410 },
+    { time: '16:00', votes: 670 },
+    { time: '17:00', votes: 540 },
+  ];
+
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className="relative min-h-screen bg-white overflow-hidden selection:bg-emerald-100 selection:text-emerald-900">
       
+      {/* Background Grid Pattern */}
+      <div className="absolute inset-0 bg-tech-grid pointer-events-none z-0"></div>
+      
+      {/* Background Gradients for depth */}
+      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-50/50 rounded-full filter blur-3xl -translate-y-1/2 translate-x-1/3 z-0"></div>
+      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-emerald-50/50 rounded-full filter blur-3xl translate-y-1/3 -translate-x-1/3 z-0"></div>
+
       {/* --- HERO SECTION --- */}
-      <div className="relative min-h-[90vh] flex items-center justify-center bg-slate-50 overflow-hidden">
-        {/* Animated Background Blobs */}
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-emerald-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-        
-        {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 bg-grid-pattern opacity-[0.3] z-0 pointer-events-none"></div>
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center gap-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 lg:pt-24 lg:pb-32">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          
+          {/* LEFT COLUMN: Typography & Actions */}
+          <div className="space-y-8 animate-fade-in max-w-2xl">
             
-            {/* Text Content */}
-            <div className="flex-1 text-center lg:text-left space-y-8 animate-fade-in-up">
-                <div className="inline-flex items-center space-x-2 bg-white bg-opacity-60 backdrop-blur-sm border border-emerald-100 rounded-full px-4 py-1.5 shadow-sm mb-4">
-                    <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-sm font-medium text-emerald-800 tracking-wide uppercase">2025 Elections Live</span>
-                </div>
-
-                <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
-                    Decide the <br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Future</span> of <br/>
-                    Computing.
-                </h1>
-                
-                <p className="text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                    The official blockchain-verified voting platform for the Nigeria Association of Computing Students (NACOSS). Secure. Transparent. Immediate.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
-                    <Button 
-                        onClick={() => navigate('/login')} 
-                        className="w-full sm:w-auto px-8 py-4 text-lg bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200/50 transition-transform transform hover:-translate-y-1"
-                    >
-                        Access Student Portal
-                    </Button>
-                    <Button 
-                        variant="outline"
-                        onClick={() => navigate('/register-aspirant')}
-                        className="w-full sm:w-auto px-8 py-4 text-lg border-2 hover:bg-slate-50"
-                    >
-                        Become a Candidate
-                    </Button>
-                </div>
-
-                <div className="pt-8 flex items-center justify-center lg:justify-start gap-8 text-sm text-slate-500 font-medium">
-                    <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span>Verified IDs</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                        <span>Secure Encryption</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        <span>Real-time Results</span>
-                    </div>
-                </div>
+            {/* Trust Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-slate-600 tracking-wide">Trusted by NACOSS National Body</span>
             </div>
 
-            {/* Graphics Content */}
-            <div className="flex-1 w-full max-w-lg relative animate-fade-in-up delay-200">
-                {/* CSS 3D Floating Ballot Box Illustration */}
-                <div className="relative w-full h-96 animate-float">
-                    {/* Abstract Cards Background */}
-                    <div className="absolute top-0 right-0 w-64 h-80 bg-white rounded-2xl shadow-2xl transform rotate-6 z-10 border border-slate-100 flex flex-col p-6">
-                        <div className="h-20 w-20 bg-emerald-100 rounded-full mb-4 self-center animate-pulse"></div>
-                        <div className="h-4 w-32 bg-slate-100 rounded mb-2 self-center"></div>
-                        <div className="h-3 w-24 bg-slate-100 rounded self-center mb-8"></div>
-                        <div className="space-y-2">
-                            <div className="h-10 w-full bg-emerald-50 rounded border border-emerald-100"></div>
-                            <div className="h-10 w-full bg-slate-50 rounded"></div>
-                        </div>
-                    </div>
-                    
-                    <div className="absolute top-12 left-4 w-64 h-80 glass-card rounded-2xl shadow-xl transform -rotate-6 z-20 border border-white/50 p-6 backdrop-blur-md">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="h-3 w-3 bg-red-400 rounded-full"></div>
-                            <div className="h-2 w-12 bg-slate-200 rounded"></div>
-                        </div>
-                        <div className="h-32 w-full bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg mb-4 flex items-center justify-center shadow-inner">
-                            <svg className="w-16 h-16 text-white opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 bg-purple-100 rounded-full"></div>
-                                <div className="h-3 w-24 bg-slate-200 rounded"></div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 bg-orange-100 rounded-full"></div>
-                                <div className="h-3 w-24 bg-slate-200 rounded"></div>
-                            </div>
-                        </div>
-                    </div>
+            {/* Headline */}
+            <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
+              The Standard for <br/>
+              <span className="relative inline-block">
+                Digital Voting.
+                {/* Underline decoration */}
+                <svg className="absolute -bottom-2 left-0 w-full h-3 text-emerald-400 opacity-50" viewBox="0 0 100 10" preserveAspectRatio="none">
+                  <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="4" fill="none" />
+                </svg>
+              </span>
+            </h1>
 
-                    {/* Floating Elements */}
-                    <div className="absolute -right-8 bottom-20 bg-white p-4 rounded-xl shadow-lg animate-float-delayed z-30">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-green-100 p-2 rounded-full">
-                                <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500">Votes Cast</p>
-                                <p className="text-lg font-bold text-gray-900">1,240+</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            {/* Subtext */}
+            <p className="text-lg text-slate-600 leading-relaxed max-w-lg">
+              Run transparent, verifiable elections with military-grade security. 
+              From departmental executives to national delegates, ensure every voice is counted accurately on the blockchain.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-2">
+              <button 
+                onClick={() => navigate('/login')}
+                className="px-8 py-4 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              >
+                Access Student Portal
+                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </button>
+              
+              <button 
+                onClick={() => navigate('/register-aspirant')}
+                className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-lg font-semibold hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center"
+              >
+                I'm an Aspirant
+              </button>
             </div>
+
+            {/* Trust Indicators */}
+            <div className="pt-8 flex flex-wrap gap-6 text-sm font-medium text-slate-500">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Audit Ready
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                GDPR Compliant
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                256-bit Encrypted
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Interactive Illustration */}
+          <div className="relative h-[500px] w-full flex items-center justify-center animate-fade-in delay-200">
+             
+             {/* Ripple Circles Background */}
+             <div className="absolute border border-slate-100 rounded-full w-[400px] h-[400px] animate-pulse-ring"></div>
+             <div className="absolute border border-slate-100 rounded-full w-[550px] h-[550px] animate-pulse-ring delay-300"></div>
+
+             {/* MAIN CARD (Shield) */}
+             <div className="relative z-20 w-72 h-96 bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl flex flex-col items-center justify-center text-white border border-slate-700/50">
+                {/* Shield Icon */}
+                <div className="w-24 h-24 mb-6 relative">
+                   <svg className="w-full h-full text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                   </svg>
+                   <div className="absolute inset-0 bg-emerald-400 blur-xl opacity-20"></div>
+                </div>
+                
+                {/* Loading Bar */}
+                <div className="w-40 h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
+                   <div className="h-full bg-emerald-500 w-2/3 animate-[shimmer_2s_infinite]"></div>
+                </div>
+                <p className="text-xs text-slate-400 font-mono">Verifying Block...</p>
+                
+                {/* Grid overlay on card */}
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay pointer-events-none rounded-2xl"></div>
+             </div>
+
+             {/* FLOATING BADGE 1: Encryption (Top Left) */}
+             <div className="absolute top-10 left-0 lg:-left-4 glass-card-sm p-3 rounded-xl flex items-center gap-3 animate-float-slow z-30">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Encryption</p>
+                   <p className="text-sm font-bold text-slate-800">AES-256</p>
+                </div>
+             </div>
+
+             {/* FLOATING BADGE 2: Access (Right) */}
+             <div className="absolute top-24 right-0 lg:-right-8 glass-card-sm p-3 rounded-xl flex items-center gap-3 animate-float-reverse z-10">
+                <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                </div>
+                <div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Access</p>
+                   <p className="text-sm font-bold text-slate-800">Global</p>
+                </div>
+             </div>
+
+             {/* FLOATING BADGE 3: Results (Bottom Left) */}
+             <div className="absolute bottom-20 left-4 lg:-left-8 glass-card-sm p-3 rounded-xl flex items-center gap-3 animate-float-medium z-30">
+                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                </div>
+                <div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Results</p>
+                   <p className="text-sm font-bold text-slate-800">Real-time</p>
+                </div>
+             </div>
+
+             {/* FLOATING BADGE 4: Audit (Bottom Right) */}
+             <div className="absolute bottom-10 right-4 lg:right-0 glass-card-sm p-3 rounded-xl flex items-center gap-3 animate-float-fast z-30">
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Audit</p>
+                   <p className="text-sm font-bold text-slate-800">Immutable</p>
+                </div>
+             </div>
+          </div>
         </div>
       </div>
 
-      {/* --- STATISTICS TICKER --- */}
-      <div className="bg-slate-900 py-6 overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-slate-900 z-10"></div>
-          <div className="flex whitespace-nowrap animate-[shimmer_20s_linear_infinite]">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="flex items-center mx-8 text-slate-400 font-mono text-sm">
-                      <span className="text-emerald-500 mr-2">●</span> LIVE: VOTE PROCESSING <span className="mx-4 text-slate-600">|</span> 
-                      <span className="text-purple-400 mr-2">▲</span> TURNOUT +5% <span className="mx-4 text-slate-600">|</span>
+      {/* --- LIVE ELECTION VELOCITY CHART (Trading Style) --- */}
+      <section className="py-24 bg-slate-50 border-y border-slate-200 relative overflow-hidden">
+             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                  <div className="flex flex-col lg:flex-row gap-16 items-center">
+                       {/* Text Content */}
+                       <div className="lg:w-1/2 space-y-8">
+                            <div>
+                                <h2 className="text-emerald-600 font-bold tracking-wide uppercase text-sm mb-2">Live Market Data</h2>
+                                <h2 className="text-3xl font-bold font-display text-slate-900 leading-tight">Real-Time Election Velocity</h2>
+                            </div>
+                            <p className="text-slate-600 text-lg leading-relaxed">
+                                Our blockchain-backed ledger processes votes with the precision of a high-frequency trading engine. Monitor voter turnout spikes and candidate momentum as they happen on the immutable ledger.
+                            </p>
+                            <div className="grid grid-cols-2 gap-6 pt-4">
+                                <div className="p-5 bg-white rounded-xl shadow-sm border border-slate-100 transition-transform hover:-translate-y-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">TPS (Tx/Sec)</p>
+                                        <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                    </div>
+                                    <p className="text-3xl font-bold text-slate-900 font-mono">1,240</p>
+                                    <p className="text-xs text-emerald-600 mt-1 font-medium">▲ 12% vs last hour</p>
+                                </div>
+                                <div className="p-5 bg-white rounded-xl shadow-sm border border-slate-100 transition-transform hover:-translate-y-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Network Latency</p>
+                                        <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                    </div>
+                                    <p className="text-3xl font-bold text-slate-900 font-mono">~45ms</p>
+                                    <p className="text-xs text-blue-600 mt-1 font-medium">Global CDN Active</p>
+                                </div>
+                            </div>
+                       </div>
+
+                       {/* The Trade Chart Card */}
+                       <div className="lg:w-1/2 w-full">
+                            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden relative group">
+                                {/* Header imitating a trading terminal */}
+                                <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-100 rounded text-emerald-700 text-xs font-bold border border-emerald-200">
+                                            <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full animate-pulse"></span>
+                                            LIVE
+                                        </div>
+                                        <span className="text-slate-700 font-bold text-sm tracking-tight">VOTE/HOUR VOLUME</span>
+                                    </div>
+                                    <div className="text-xs font-mono text-slate-400 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                        MARKET OPEN
+                                    </div>
+                                </div>
+                                
+                                {/* Chart Area */}
+                                <div className="h-72 w-full p-6">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} barGap={4}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                            <XAxis 
+                                                dataKey="time" 
+                                                axisLine={false} 
+                                                tickLine={false} 
+                                                tick={{fontSize: 11, fill: '#94a3b8', fontWeight: 500}} 
+                                                dy={10}
+                                            />
+                                            <YAxis 
+                                                hide={true} 
+                                            />
+                                            <Tooltip 
+                                                cursor={{fill: '#f8fafc', opacity: 0.8}}
+                                                contentStyle={{
+                                                    borderRadius: '8px', 
+                                                    border: '1px solid #e2e8f0', 
+                                                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                                                    padding: '12px'
+                                                }}
+                                                labelStyle={{ color: '#64748b', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}
+                                                itemStyle={{ color: '#10b981', fontWeight: 'bold', fontSize: '14px' }}
+                                            />
+                                            <Bar 
+                                                dataKey="votes" 
+                                                radius={[4, 4, 0, 0]} 
+                                                barSize={32}
+                                                animationDuration={1500}
+                                            >
+                                                {chartData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#10b981' : '#34d399'} stroke={index % 2 === 0 ? '#059669' : '#10b981'} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                
+                                {/* Overlay Gradient at bottom to fade nicely */}
+                                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                            </div>
+                       </div>
                   </div>
-              ))}
-          </div>
+             </div>
+      </section>
+
+      {/* --- ABOUT NACOSS SECTION --- */}
+      <div className="bg-white py-24 relative overflow-hidden">
+            {/* Decorative background animations */}
+            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
+            <div className="absolute -left-20 top-20 w-72 h-72 bg-emerald-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
+            <div className="absolute -right-20 bottom-20 w-72 h-72 bg-indigo-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+            <div className="absolute left-1/2 bottom-0 w-72 h-72 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-4000 transform -translate-x-1/2"></div>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                <div className="text-center max-w-3xl mx-auto mb-16">
+                    <h2 className="text-emerald-600 font-bold tracking-wide uppercase text-sm mb-2">About The Association</h2>
+                    <h3 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 font-display">Nigeria Association of Computing Students</h3>
+                    <p className="text-lg text-slate-600 leading-relaxed">
+                        NACOSS is the largest student professional body in Sub-Saharan Africa. We foster IT excellence, promote technological innovation, and empower students across all tertiary institutions in Nigeria.
+                    </p>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-8">
+                    {/* Card 1: Mission */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-1">
+                        <div className="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-6 border border-emerald-100">
+                            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900 mb-3">Our Mission</h4>
+                        <p className="text-slate-600 leading-relaxed">
+                            To facilitate opportunities for study, research, and IT application development, ensuring Nigeria remains at the forefront of the global digital economy.
+                        </p>
+                    </div>
+
+                    {/* Card 2: Reach */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-1">
+                        <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-6 border border-blue-100">
+                            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900 mb-3">Continental Reach</h4>
+                        <p className="text-slate-600 leading-relaxed">
+                            Serving over 350,000 members across six geopolitical zones. We are the umbrella body for students in Computer Science, Software Engineering, and related fields.
+                        </p>
+                    </div>
+
+                    {/* Card 3: Innovation */}
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-1">
+                        <div className="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 mb-6 border border-purple-100">
+                            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        </div>
+                        <h4 className="text-xl font-bold text-slate-900 mb-3">Innovation Hub</h4>
+                        <p className="text-slate-600 leading-relaxed">
+                            Through conferences, hackathons, and platforms like this e-voting system, we bridge the gap between academic theory and practical industry application.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Stats Strip */}
+                <div className="mt-20 border-t border-slate-200 pt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                    <div className="group">
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">350k+</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Active Members</div>
+                    </div>
+                    <div className="group">
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">6</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Geo-Political Zones</div>
+                    </div>
+                     <div className="group">
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">100%</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Student Led</div>
+                    </div>
+                     <div className="group">
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">1993</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Est. Year</div>
+                    </div>
+                </div>
+            </div>
       </div>
-
-      {/* --- FEATURES SECTION --- */}
-      <div className="py-24 bg-white relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-16">
-                  <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Why E-Voting?</h2>
-                  <p className="mt-4 text-lg text-slate-600">Modernizing the democratic process for the digital age.</p>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-8">
-                  {[
-                      {
-                          title: "Biometric-Ready Security",
-                          desc: "Linked directly to student matriculation numbers and ID cards for authentic verification.",
-                          icon: "shield",
-                          color: "bg-blue-50 text-blue-600"
-                      },
-                      {
-                          title: "Instant Analytics",
-                          desc: "No more manual counting. Results are tallied in real-time as votes are cast on the network.",
-                          icon: "chart",
-                          color: "bg-purple-50 text-purple-600"
-                      },
-                      {
-                          title: "Accessible Anywhere",
-                          desc: "Vote from your hostel, lecture hall, or home using any internet-enabled device.",
-                          icon: "globe",
-                          color: "bg-emerald-50 text-emerald-600"
-                      }
-                  ].map((feature, idx) => (
-                      <div key={idx} className="group p-8 rounded-2xl border border-slate-100 bg-white hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
-                          <div className={`w-14 h-14 ${feature.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                              {feature.icon === 'shield' && <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
-                              {feature.icon === 'chart' && <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>}
-                              {feature.icon === 'globe' && <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>}
-                          </div>
-                          <h3 className="text-xl font-bold text-slate-900 mb-3">{feature.title}</h3>
-                          <p className="text-slate-500 leading-relaxed">{feature.desc}</p>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      </div>
-
-      {/* --- CTA SECTION --- */}
-      <div className="bg-emerald-900 relative py-20 px-4 overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20"></div>
-          
-          <div className="relative z-10 max-w-4xl mx-auto text-center space-y-8">
-              <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight">Ready to shape the administration?</h2>
-              <p className="text-emerald-200 text-lg md:text-xl max-w-2xl mx-auto">
-                  Every vote counts. Join thousands of students in selecting the next generation of NACOSS leaders.
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <Button onClick={() => navigate('/login')} className="bg-white text-emerald-900 hover:bg-emerald-50 border-none px-8 py-4 text-lg font-bold">
-                      Login to Vote
-                  </Button>
-                  <Button onClick={() => navigate('/register')} variant="outline" className="border-emerald-700 text-emerald-100 hover:bg-emerald-800 hover:text-white px-8 py-4 text-lg">
-                      Register Account
-                  </Button>
-              </div>
-          </div>
-      </div>
-
     </div>
   );
 };
