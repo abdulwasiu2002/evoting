@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
 import { Button } from '../components/Button';
-import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { isSupabaseConfigured } from '../services/supabaseClient';
@@ -32,7 +32,6 @@ export const AdminDashboard: React.FC = () => {
   const [isEditingCandidate, setIsEditingCandidate] = useState(false);
   const [candidateForm, setCandidateForm] = useState<Partial<Candidate>>({});
   const [candidatePhotoPreview, setCandidatePhotoPreview] = useState<string | null>(null);
-  const [viewingCandidate, setViewingCandidate] = useState<Candidate | null>(null);
 
   // Position Management State
   const [newPosition, setNewPosition] = useState({ name: '', price: '0', level: 'All' });
@@ -51,11 +50,8 @@ export const AdminDashboard: React.FC = () => {
       isVotingEnabled: false
   });
 
-  // DB Connection State
-  const [dbMode, setDbMode] = useState(isSupabaseConfigured() ? 'remote' : 'local');
-
   // --- CHART COLORS ---
-  const COLORS = ['#10B981', '#6366F1', '#F59E0B', '#EF4444', '#8B5CF6'];
+  const COLORS = ['#10B981', '#6366F1', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#64748B'];
 
   const fetchPending = async () => {
     const users = await db.getPendingUsers();
@@ -131,7 +127,6 @@ export const AdminDashboard: React.FC = () => {
       fetchResults();
       const unsubscribe = db.connectToLiveUpdates('vote_update', (data: Vote | null) => {
         fetchResults(); 
-
         const time = new Date().toLocaleTimeString();
         let message = "Vote count updated";
         if (data && data.position) {
@@ -139,7 +134,6 @@ export const AdminDashboard: React.FC = () => {
         } else if (data === null) {
             message = "Incoming vote detected (synced)";
         }
-
         setLiveActivity(prev => [
             { id: Date.now().toString() + Math.random(), message, time }, 
             ...prev
@@ -151,7 +145,6 @@ export const AdminDashboard: React.FC = () => {
     if (activeTab === 'analytics') {
         fetchResults();
         fetchDepartmentStats();
-        // Also fetch activity for the mini feed
         fetchAudit(); 
     }
 
@@ -178,7 +171,6 @@ export const AdminDashboard: React.FC = () => {
   const handleApproval = async (userId: string, approve: boolean) => {
     const reason = !approve ? prompt("Reason for rejection?") : undefined;
     if (!approve && reason === null) return; 
-    if (!approve && !reason) return; 
     
     setProcessingId(userId);
     try {
@@ -352,7 +344,6 @@ export const AdminDashboard: React.FC = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         
-        // Recalculate stats inside function to ensure freshness
         const currentTotalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
         const currentTotalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
         const turnoutPercentage = currentTotalRegistered > 0 
@@ -381,7 +372,6 @@ export const AdminDashboard: React.FC = () => {
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         
-        // Stats Columns
         const summaryY = 65;
         doc.text(`Total Registered Students: ${currentTotalRegistered}`, 14, summaryY);
         doc.text(`Total Votes Cast: ${currentTotalVotes}`, 14, summaryY + 8);
@@ -402,11 +392,9 @@ export const AdminDashboard: React.FC = () => {
             head: [["Department", "Registered Students"]],
             body: deptRows,
             theme: 'grid',
-            headStyles: { fillColor: [75, 85, 99] }, // Gray-600
+            headStyles: { fillColor: [75, 85, 99] }, 
         });
 
-        // --- ELECTION RESULTS TABLE ---
-        // Get the Y position where the previous table ended
         const resultsStartY = (doc as any).lastAutoTable.finalY + 20;
 
         doc.text("DETAILED ELECTION RESULTS", 14, resultsStartY - 5);
@@ -418,10 +406,9 @@ export const AdminDashboard: React.FC = () => {
             head: [["Position", "Candidate", "Votes"]],
             body: resultRows,
             theme: 'striped',
-            headStyles: { fillColor: [4, 120, 87] }, // Emerald-700
+            headStyles: { fillColor: [4, 120, 87] },
         });
 
-        // Footer
         const pageCount = (doc as any).internal.getNumberOfPages();
         for(let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
@@ -473,6 +460,7 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen pb-10">
+      {/* Top Header */}
       <div className="mb-8 flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-100">
         <div>
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Admin Console</h1>
@@ -489,6 +477,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-6 overflow-x-auto">
         <nav className="-mb-px flex space-x-6">
           {['analytics', 'pending', 'aspirants', 'results', 'candidates', 'positions', 'departments', 'audit', 'settings'].map((tab) => (
@@ -508,6 +497,7 @@ export const AdminDashboard: React.FC = () => {
         </nav>
       </div>
 
+      {/* ANALYTICS TAB */}
       {activeTab === 'analytics' && (
           <div className="space-y-8 animate-fade-in-up">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -648,7 +638,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
       )}
 
-      {/* ... (Existing Tabs: Pending, Aspirants, etc.) ... */}
+      {/* PENDING USERS TAB */}
       {activeTab === 'pending' && (
         <div className="bg-white shadow overflow-hidden sm:rounded-md animate-fade-in-up">
           {pendingUsers.length === 0 ? (
@@ -680,12 +670,322 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ... (Other tabs kept identical, just contextually wrapped) ... */}
-      {/* ... (Modals kept identical) ... */}
+      {/* ASPIRANTS TAB */}
+      {activeTab === 'aspirants' && (
+        <div className="bg-white shadow overflow-hidden sm:rounded-md animate-fade-in-up">
+          {aspirants.length === 0 ? (
+             <div className="p-8 text-center text-gray-500">No aspirants registered yet.</div>
+          ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aspirant</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {aspirants.map((asp) => (
+                  <tr key={asp.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <img className="h-10 w-10 rounded-full object-cover" src={asp.passportUrl} alt="" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{asp.fullName}</div>
+                          <div className="text-sm text-gray-500">{asp.matricNo}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{asp.position}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        asp.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 
+                        asp.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {asp.paymentStatus.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        asp.status === 'approved' ? 'bg-blue-100 text-blue-800' : 
+                        asp.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {asp.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Button size="sm" onClick={() => setReviewingAspirant(asp)}>Review</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          )}
+        </div>
+      )}
+
+      {/* RESULTS TAB */}
+      {activeTab === 'results' && (
+        <div className="bg-white shadow sm:rounded-lg overflow-hidden animate-fade-in-up">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vote Count</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {results.map((row, idx) => {
+                  const totalForPos = results.filter(r => r.position === row.position).reduce((acc, curr) => acc + curr.votes, 0);
+                  const percent = totalForPos > 0 ? ((row.votes / totalForPos) * 100).toFixed(1) : '0.0';
+                  
+                  return (
+                    <tr key={idx}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{row.position}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">{row.votes}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                                <span className="mr-2">{percent}%</span>
+                                <div className="w-24 bg-gray-200 rounded-full h-2.5">
+                                    <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${percent}%` }}></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                  );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* CANDIDATES TAB */}
+      {activeTab === 'candidates' && (
+        <div className="space-y-6 animate-fade-in-up">
+           <div className="flex justify-end">
+             <Button onClick={openAddCandidate}>+ Add New Candidate</Button>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {candidates.map(candidate => (
+                 <div key={candidate.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                    <div className="h-48 overflow-hidden bg-gray-100 relative">
+                        {candidate.photoUrl ? (
+                            <img src={candidate.photoUrl} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">No Photo</div>
+                        )}
+                        <div className="absolute top-2 right-2 flex space-x-1">
+                             <button onClick={() => openEditCandidate(candidate)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50">✏️</button>
+                             <button onClick={() => handleDeleteCandidate(candidate.id)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50 text-red-500">🗑️</button>
+                        </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col">
+                        <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
+                        <p className="text-sm text-emerald-600 font-medium">{candidate.position}</p>
+                        <p className="text-xs text-gray-500 mt-1">{candidate.department} • {candidate.matricNo}</p>
+                        <div className="mt-3 flex-1">
+                             <p className="text-sm text-gray-600 line-clamp-3 italic">"{candidate.manifesto}"</p>
+                        </div>
+                    </div>
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
+      {/* POSITIONS TAB */}
+      {activeTab === 'positions' && (
+         <div className="grid md:grid-cols-3 gap-8 animate-fade-in-up">
+             <div className="md:col-span-1">
+                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                     <h3 className="text-lg font-bold mb-4">Add Position</h3>
+                     <form onSubmit={handleAddPosition} className="space-y-4">
+                         <div>
+                             <label className="block text-sm font-medium text-gray-700">Position Name</label>
+                             <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={newPosition.name} onChange={e => setNewPosition({...newPosition, name: e.target.value})} required />
+                         </div>
+                         <div>
+                             <label className="block text-sm font-medium text-gray-700">Form Price (₦)</label>
+                             <input type="number" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={newPosition.price} onChange={e => setNewPosition({...newPosition, price: e.target.value})} required />
+                         </div>
+                         <div>
+                             <label className="block text-sm font-medium text-gray-700">Eligible Level</label>
+                             <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={newPosition.level} onChange={e => setNewPosition({...newPosition, level: e.target.value})}>
+                                 <option value="All">All Levels</option>
+                                 <option value="ND I">ND I</option>
+                                 <option value="ND II">ND II</option>
+                                 <option value="HND I">HND I</option>
+                                 <option value="HND II">HND II</option>
+                             </select>
+                         </div>
+                         <Button type="submit" className="w-full">Create Position</Button>
+                     </form>
+                 </div>
+             </div>
+             <div className="md:col-span-2">
+                 <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                     <ul className="divide-y divide-gray-200">
+                         {positions.map((pos, idx) => (
+                             <li key={idx} className="px-6 py-4 flex items-center justify-between">
+                                 <div>
+                                     <p className="text-sm font-bold text-gray-900">{pos.name}</p>
+                                     <p className="text-xs text-gray-500">Price: ₦{pos.price} • Level: {pos.eligibleLevel}</p>
+                                 </div>
+                                 <button onClick={() => handleRemovePosition(pos.name)} className="text-red-600 hover:text-red-900 text-sm">Remove</button>
+                             </li>
+                         ))}
+                     </ul>
+                 </div>
+             </div>
+         </div>
+      )}
+
+      {/* DEPARTMENTS TAB */}
+      {activeTab === 'departments' && (
+         <div className="grid md:grid-cols-3 gap-8 animate-fade-in-up">
+             <div className="md:col-span-1">
+                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                     <h3 className="text-lg font-bold mb-4">Add Department</h3>
+                     <form onSubmit={handleAddDepartment} className="space-y-4">
+                         <div>
+                             <label className="block text-sm font-medium text-gray-700">Department Name</label>
+                             <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={newDepartment} onChange={e => setNewDepartment(e.target.value)} required />
+                         </div>
+                         <Button type="submit" className="w-full">Add Department</Button>
+                     </form>
+                 </div>
+             </div>
+             <div className="md:col-span-2">
+                 <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                     <ul className="divide-y divide-gray-200">
+                         {departments.map((dept, idx) => (
+                             <li key={idx} className="px-6 py-4 flex items-center justify-between">
+                                 <span className="text-sm font-medium text-gray-900">{dept}</span>
+                                 <button onClick={() => handleRemoveDepartment(dept)} className="text-red-600 hover:text-red-900 text-sm">Remove</button>
+                             </li>
+                         ))}
+                     </ul>
+                 </div>
+             </div>
+         </div>
+      )}
+
+      {/* AUDIT TAB */}
+      {activeTab === 'audit' && (
+         <div className="bg-white shadow overflow-hidden sm:rounded-lg animate-fade-in-up">
+             <table className="min-w-full divide-y divide-gray-200">
+                 <thead className="bg-gray-50">
+                     <tr>
+                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actor</th>
+                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                     </tr>
+                 </thead>
+                 <tbody className="bg-white divide-y divide-gray-200">
+                     {logs.map(log => (
+                         <tr key={log.id}>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(log.timestamp).toLocaleString()}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">{log.actorRole} ({log.actorId.slice(0,5)})</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.actionType}</td>
+                             <td className="px-6 py-4 text-sm text-gray-500">{log.details}</td>
+                         </tr>
+                     ))}
+                 </tbody>
+             </table>
+         </div>
+      )}
+
+      {/* SETTINGS TAB */}
+      {activeTab === 'settings' && (
+         <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-200 animate-fade-in-up">
+             <h3 className="text-xl font-bold mb-6">Election Configuration</h3>
+             <form onSubmit={handleSaveSettings} className="space-y-6">
+                 <div className="grid grid-cols-2 gap-6">
+                     <div>
+                         <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                         <input type="date" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={settings.startDate} onChange={e => setSettings({...settings, startDate: e.target.value})} required />
+                     </div>
+                     <div>
+                         <label className="block text-sm font-medium text-gray-700">End Date</label>
+                         <input type="date" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={settings.endDate} onChange={e => setSettings({...settings, endDate: e.target.value})} required />
+                     </div>
+                 </div>
+                 
+                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-200">
+                     <div>
+                         <h4 className="font-bold text-gray-900">Voting Status</h4>
+                         <p className="text-sm text-gray-500">Enable or disable voting globally.</p>
+                     </div>
+                     <label className="relative inline-flex items-center cursor-pointer">
+                         <input type="checkbox" className="sr-only peer" checked={settings.isVotingEnabled} onChange={e => setSettings({...settings, isVotingEnabled: e.target.checked})} />
+                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                     </label>
+                 </div>
+
+                 <Button type="submit" isLoading={loading}>Save Settings</Button>
+             </form>
+         </div>
+      )}
+
       
-      {/* (Abbreviated existing code for brevity, ensuring no functionality lost) */}
-      {/* ... */}
-      
+      {/* CANDIDATE MODAL */}
+      {isCandidateModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+                  <h3 className="text-lg font-bold mb-4">{isEditingCandidate ? 'Edit Candidate' : 'Add New Candidate'}</h3>
+                  <form onSubmit={handleSaveCandidate} className="space-y-4">
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                          <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.name || ''} onChange={e => setCandidateForm({...candidateForm, name: e.target.value})} required />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Matric No</label>
+                              <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.matricNo || ''} onChange={e => setCandidateForm({...candidateForm, matricNo: e.target.value})} required />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Department</label>
+                              <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={candidateForm.department} onChange={e => setCandidateForm({...candidateForm, department: e.target.value})}>
+                                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                              </select>
+                          </div>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Position</label>
+                          <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={candidateForm.position} onChange={e => setCandidateForm({...candidateForm, position: e.target.value})}>
+                              {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Manifesto</label>
+                          <textarea rows={3} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.manifesto || ''} onChange={e => setCandidateForm({...candidateForm, manifesto: e.target.value})} required />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Photo</label>
+                          <input type="file" className="mt-1 block w-full" accept="image/*" onChange={handlePhotoFileChange} />
+                          {candidatePhotoPreview && <img src={candidatePhotoPreview} className="mt-2 h-20 w-20 object-cover rounded" />}
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                          <Button type="button" variant="outline" onClick={() => setIsCandidateModalOpen(false)}>Cancel</Button>
+                          <Button type="submit" isLoading={loading}>Save</Button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* VERIFY USER MODAL */}
       {verifyingUser && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -726,7 +1026,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ... (Aspirant review modal) ... */}
+      {/* REVIEW ASPIRANT MODAL */}
       {reviewingAspirant && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
