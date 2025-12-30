@@ -352,6 +352,14 @@ export const AdminDashboard: React.FC = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         
+        // Recalculate stats inside function to ensure freshness
+        const currentTotalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
+        const currentTotalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
+        const turnoutPercentage = currentTotalRegistered > 0 
+            ? Math.round((currentTotalVotes / (currentTotalRegistered * positions.length || 1)) * 100) 
+            : 0;
+
+        // --- HEADER ---
         doc.setFillColor(16, 185, 129); // Emerald-500
         doc.rect(0, 0, pageWidth, 40, 'F');
         
@@ -364,26 +372,65 @@ export const AdminDashboard: React.FC = () => {
         doc.setFont("helvetica", "normal");
         doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 32);
 
-        let finalY = 50;
-        const tableTheme = { 
-            headStyles: { fillColor: [4, 120, 87] as [number, number, number], textColor: 255 }, 
-            margin: { left: 14, right: 14 } 
-        };
+        // --- EXECUTIVE SUMMARY ---
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("EXECUTIVE SUMMARY", 14, 55);
 
-        const resultRows: any[] = [];
-        results.forEach(item => {
-            resultRows.push([item.position, item.name, item.votes]);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        
+        // Stats Columns
+        const summaryY = 65;
+        doc.text(`Total Registered Students: ${currentTotalRegistered}`, 14, summaryY);
+        doc.text(`Total Votes Cast: ${currentTotalVotes}`, 14, summaryY + 8);
+        doc.text(`Voter Turnout: ${turnoutPercentage}%`, 14, summaryY + 16);
+        
+        doc.text(`Election Status: ${settings.isVotingEnabled ? 'Ongoing / Active' : 'Closed / Concluded'}`, 110, summaryY);
+        doc.text(`Departments Participating: ${departments.length}`, 110, summaryY + 8);
+
+        // --- DEPARTMENT BREAKDOWN TABLE ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("REGISTRATION BY DEPARTMENT", 14, 95);
+
+        const deptRows = departmentStats.map(d => [d.name, d.count]);
+        
+        autoTable(doc, {
+            startY: 100,
+            head: [["Department", "Registered Students"]],
+            body: deptRows,
+            theme: 'grid',
+            headStyles: { fillColor: [75, 85, 99] }, // Gray-600
         });
 
-        // Updated Usage: Call autoTable directly passing 'doc'
+        // --- ELECTION RESULTS TABLE ---
+        // Get the Y position where the previous table ended
+        const resultsStartY = (doc as any).lastAutoTable.finalY + 20;
+
+        doc.text("DETAILED ELECTION RESULTS", 14, resultsStartY - 5);
+
+        const resultRows = results.map(item => [item.position, item.name, item.votes]);
+
         autoTable(doc, {
+            startY: resultsStartY,
             head: [["Position", "Candidate", "Votes"]],
             body: resultRows,
-            startY: finalY,
-            ...tableTheme
+            theme: 'striped',
+            headStyles: { fillColor: [4, 120, 87] }, // Emerald-700
         });
+
+        // Footer
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Page ${i} of ${pageCount} - NACOSS E-Voting System`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+        }
         
-        doc.save("NACOSS_Election_Report.pdf");
+        doc.save("NACOSS_Election_Report_Detailed.pdf");
     } catch (error: any) {
         console.error(error);
         alert(`Failed to generate report: ${error.message}`);
