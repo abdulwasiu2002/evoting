@@ -10,44 +10,80 @@ interface Props {
   user: User;
 }
 
-// Helper function to load images (Base64) to bypass some PDF generation issues
+// Helper function to load images (Base64) with multiple fallback strategies
 const loadImage = (url: string): Promise<string | null> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "Anonymous"; 
-    // Use CORS proxy to bypass restriction for external images
-    img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL("image/png"));
-      } else {
-          resolve(null);
-      }
-    };
-    img.onerror = () => {
-      console.warn("Failed to load image via proxy:", url);
-      // Fallback: Try direct load (might work if server allows CORS)
-      const directImg = new Image();
-      directImg.crossOrigin = "Anonymous";
-      directImg.src = url;
-      directImg.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = directImg.width;
-          canvas.height = directImg.height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-              ctx.drawImage(directImg, 0, 0);
-              resolve(canvas.toDataURL("image/png"));
-          } else resolve(null);
-      };
-      directImg.onerror = () => resolve(null);
-    };
+  return new Promise(async (resolve) => {
+    // Strategy 1: AllOrigins Proxy
+    const tryAllOrigins = () => new Promise<string>((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                res(canvas.toDataURL("image/png"));
+            } else rej("Canvas error");
+        };
+        img.onerror = () => rej("AllOrigins failed");
+    });
+
+    // Strategy 2: CORSProxy.io
+    const tryCorsProxy = () => new Promise<string>((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        img.onload = () => {
+             const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                res(canvas.toDataURL("image/png"));
+            } else rej("Canvas error");
+        };
+        img.onerror = () => rej("CorsProxy failed");
+    });
+
+    // Strategy 3: Direct Load
+    const tryDirect = () => new Promise<string>((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = url;
+        img.onload = () => {
+             const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                res(canvas.toDataURL("image/png"));
+            } else rej("Canvas error");
+        };
+        img.onerror = () => rej("Direct load failed");
+    });
+
+    try {
+        const result = await tryAllOrigins();
+        resolve(result);
+    } catch (e) {
+        try {
+            const result2 = await tryCorsProxy();
+            resolve(result2);
+        } catch (e2) {
+            try {
+                const result3 = await tryDirect();
+                resolve(result3);
+            } catch (e3) {
+                console.error("Image load failed:", url);
+                resolve(null);
+            }
+        }
+    }
   });
 };
 
@@ -62,12 +98,8 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [submitting, setSubmitting] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<Record<string, string>>({});
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
-  
-  // Aspirant Specifics
   const [myAspirantProfile, setMyAspirantProfile] = useState<Aspirant | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-
-  // Modal States
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastVoteReceipts, setLastVoteReceipts] = useState<string[]>([]);
@@ -87,10 +119,8 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       setPositions(p);
       setSettings(s);
       setResults(r);
-      
       const myAsp = asps.find(a => a.matricNo === user.matricNo);
       setMyAspirantProfile(myAsp || null);
-
       setLoading(false);
     };
     fetchData();
@@ -116,7 +146,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       const start = new Date(settings.startDate);
       const end = new Date(settings.endDate);
       end.setHours(23, 59, 59, 999);
-      
       return settings.isVotingEnabled && now >= start && now <= end;
   };
 
@@ -131,7 +160,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
 
   const handleInitiateVote = () => {
     const votesToCast = getPendingVotes();
-
     if (votesToCast.length === 0) {
       alert("Please select at least one candidate to vote for.");
       return;
@@ -189,7 +217,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
     }
   };
 
-  // Payment Logic
   const handleConfirmPayment = async () => {
       if (!myAspirantProfile) return;
       try {
@@ -205,144 +232,157 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       }
   };
 
+  // --- UPDATED PDF GENERATION ---
   const downloadReceipt = async () => {
       if (!myAspirantProfile) return;
       
       const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
       
-      // Load Images Async
-      const logoUrl = "https://nacos.org.ng/img/about.jpg";
-      const polyLogoUrl = "https://fedpolybida.edu.ng/images/fpb.png";
-      
+      // Load QR Code only (No logos as requested)
       const qrData = `NACOSS FORM\nName: ${myAspirantProfile.fullName}\nMatric: ${myAspirantProfile.matricNo}\nPos: ${myAspirantProfile.position}\nStatus: PAID\nPhone: ${myAspirantProfile.phone || 'N/A'}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
-
-      // Load all images in parallel
-      const [logoData, polyLogoData, qrImageData] = await Promise.all([
-          loadImage(logoUrl),
-          loadImage(polyLogoUrl),
-          loadImage(qrUrl)
-      ]);
+      const qrImageData = await loadImage(qrUrl);
       
-      // -- HEADER --
-      // Left Logo (NACOSS)
-      if (logoData) {
-           doc.addImage(logoData, 'JPEG', 20, 10, 25, 25, undefined, 'FAST');
-      }
-
-      // Right Logo (School)
-      if (polyLogoData) {
-           doc.addImage(polyLogoData, 'PNG', 165, 10, 25, 25, undefined, 'FAST');
-      }
-
+      // --- HEADER DESIGN (Green Theme) ---
+      
+      // Green Banner at Top
+      doc.setFillColor(4, 120, 87); // Emerald 700 (#047857)
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      
+      // Text - White on Green
       doc.setFontSize(14);
-      doc.setTextColor(50, 50, 50); 
+      doc.setTextColor(255, 255, 255); 
       doc.setFont("helvetica", "bold");
-      doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENT", 105, 18, { align: "center" });
+      doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENTS", pageWidth / 2, 15, { align: "center" });
       
-      doc.setFontSize(30);
-      doc.setTextColor(40, 60, 50); // Dark Greenish
-      doc.text("NACOS", 105, 29, { align: "center" });
+      doc.setFontSize(28);
+      doc.text("NACOSS", pageWidth / 2, 26, { align: "center" });
 
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      doc.text("THE FEDERAL POLYTECHNIC BIDA", 105, 35, { align: "center" });
-      doc.text("P.M.B 55, BIDA NIGER STATE", 105, 39, { align: "center" });
-      doc.text("MOTTO: TOWARDS ADVANCED TECHNOLOGY", 105, 43, { align: "center" });
+      doc.text("THE FEDERAL POLYTECHNIC BIDA | P.M.B 55, BIDA NIGER STATE", pageWidth / 2, 34, { align: "center" });
       
-      // Left/Right Header Info
-      doc.setFontSize(6);
-      doc.text("SECRETARIAT", 25, 40);
-      doc.text("Computer Science", 25, 43);
-      doc.text("Department", 25, 46);
-      doc.text("The Federal Polytechnic", 25, 49);
-      doc.text("P.M.B 55 Bida, Niger State", 25, 52);
+      // Motto below banner
+      doc.setTextColor(4, 120, 87); // Green text
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bolditalic");
+      doc.text("MOTTO: TOWARDS ADVANCED TECHNOLOGY", pageWidth / 2, 45, { align: "center" });
 
-      doc.text("+2349046465408", 170, 40);
-      doc.text("nacosfpb@gmail.com", 170, 43);
+      // Contact info (Black text)
+      doc.setTextColor(60, 60, 60);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      
+      // Left info
+      doc.text("SECRETARIAT:", 15, 50);
+      doc.text("Computer Science Department", 15, 54);
+      
+      // Right info
+      doc.text("+2349046465408", pageWidth - 15, 50, { align: 'right' });
+      doc.text("nacosfpb@gmail.com", pageWidth - 15, 54, { align: 'right' });
 
-      doc.setLineWidth(0.5);
-      doc.line(15, 55, 195, 55);
+      // Green Line separator
+      doc.setDrawColor(4, 120, 87);
+      doc.setLineWidth(1);
+      doc.line(15, 58, pageWidth - 15, 58);
 
-      // -- TITLE --
-      doc.setFontSize(12);
+      // -- FORM TITLE --
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "bold");
-      doc.text("ELECTION CANDIDATE", 105, 65, { align: "center" });
-      doc.text("NOMINATION FORM", 105, 70, { align: "center" });
+      doc.text("ELECTION CANDIDATE NOMINATION FORM", pageWidth / 2, 70, { align: "center" });
       
       // -- PASSPORT BOX --
-      doc.setDrawColor(0, 0, 0);
-      doc.rect(140, 60, 40, 45); // x, y, w, h
+      doc.setDrawColor(4, 120, 87); // Green border
+      doc.setLineWidth(0.5);
+      doc.rect(pageWidth - 55, 75, 40, 45); // Right aligned box
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text("PASSPORT", pageWidth - 35, 98, { align: "center" });
       
       // -- FIELDS --
       let y = 85;
-      const lineHeight = 10;
-      doc.setFontSize(10);
+      const lineHeight = 12;
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
 
-      // Helper for underlined field: Label________Value________
       const addField = (label: string, value: string) => {
           doc.text(label, 20, y);
-          // Draw line
-          doc.line(60, y + 1, 140, y + 1); 
-          // Add Value
-          doc.text(value.toUpperCase(), 62, y);
+          // Green Underline
+          doc.setDrawColor(4, 120, 87);
+          doc.setLineWidth(0.1);
+          doc.line(65, y + 1, 140, y + 1); 
+          
+          // Value in Bold
+          doc.setFont("helvetica", "bold");
+          doc.text(value.toUpperCase(), 67, y);
+          doc.setFont("helvetica", "normal");
           y += lineHeight;
       };
 
       addField("FULLNAME:", myAspirantProfile.fullName);
-      y += 2; // Extra space
+      y += 2; 
       addField("MATRIC NUMBER:", myAspirantProfile.matricNo);
-      addField("ADDRESS:", myAspirantProfile.address || "");
-      y += 5; // Address takes more space usually
       addField("LEVEL:", myAspirantProfile.level || "");
+      
+      // Address Field
+      doc.text("ADDRESS:", 20, y);
+      doc.setDrawColor(4, 120, 87);
+      doc.line(65, y + 1, 140, y + 1);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text((myAspirantProfile.address || "").toUpperCase(), 67, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      y += lineHeight;
+
       addField("POSITION:", myAspirantProfile.position);
-      addField("GPA:", myAspirantProfile.cgpa);
+      addField("CGPA:", myAspirantProfile.cgpa);
       addField("PHONE NUMBER:", myAspirantProfile.phone || "");
       
       // Manual Fields
+      y += 5;
       doc.text("GUARANTOR:", 20, y);
-      doc.line(60, y + 1, 140, y + 1); // Empty line
+      doc.setDrawColor(0, 0, 0); // Black line for manual filling
+      doc.setLineWidth(0.1);
+      doc.line(65, y + 1, 140, y + 1);
       y += lineHeight;
 
-      doc.text("GUARANTOR PHONE NUMBER:", 20, y);
-      doc.line(80, y + 1, 140, y + 1); // Empty line
+      doc.text("GUARANTOR PHONE:", 20, y);
+      doc.line(65, y + 1, 140, y + 1);
       
-      y += 40;
+      y += 35;
       
       // -- SIGNATURES --
-      doc.line(20, y, 70, y);
-      doc.text("Candidate Signature", 20, y + 5);
+      doc.setFontSize(10);
+      doc.line(20, y, 80, y);
+      doc.text("Candidate Signature & Date", 20, y + 5);
       
-      doc.line(120, y, 170, y);
-      doc.text("Guarantor Signature", 120, y + 5);
-
-      y += 20;
-      
-      doc.line(20, y, 60, y);
-      doc.text("Date", 20, y + 5);
-
-      doc.line(120, y, 160, y);
-      doc.text("Date", 120, y + 5);
+      doc.line(120, y, 180, y);
+      doc.text("Guarantor Signature & Date", 120, y + 5);
 
       // -- QR CODE --
       if (qrImageData) {
-         // Bottom center/right
          doc.addImage(qrImageData, "PNG", 90, 240, 30, 30); 
       } else {
+          doc.setDrawColor(0,0,0);
           doc.rect(90, 240, 30, 30);
           doc.setFontSize(8);
           doc.text("QR SCAN", 105, 255, { align: "center"});
       }
 
       // -- FOOTER INSTRUCTION --
+      y = 280;
+      doc.setFillColor(240, 253, 244); // Light Green background
+      doc.rect(10, y - 5, pageWidth - 20, 15, 'F');
+      
       doc.setFontSize(9);
       doc.setFont("helvetica", "bolditalic");
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(4, 120, 87);
       const note = "NOTE: After completing and signing this form, please photocopy and submit one copy to the Electoral Chairman's Office.";
-      const splitNote = doc.splitTextToSize(note, 180);
-      doc.text(splitNote, 105, 280, { align: "center" });
+      doc.text(note, pageWidth / 2, y, { align: "center" });
 
       doc.save("NACOSS_Nomination_Form.pdf");
   };
@@ -357,8 +397,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
 
   const myCandidateProfile = candidates.find(c => c.matricNo === user.matricNo);
   const myCandidateVotes = myCandidateProfile ? (results.find(r => r.candidateId === myCandidateProfile.id)?.count || 0) : 0;
-  
-  // Find price for aspirant
   const aspirantPositionPrice = myAspirantProfile ? positions.find(p => p.name === myAspirantProfile.position)?.price || 0 : 0;
 
   if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
@@ -450,7 +488,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       {/* VOTING SECTION */}
       {!votingOpen && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-             {/* ... existing alert content ... */}
              <div className="flex">
                 <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -470,7 +507,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         
         return (
           <div key={group.position} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-             {/* ... existing voting card content ... */}
              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">{group.position}</h2>
               {voteForPosition && (
@@ -609,7 +645,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         </div>
       )}
 
-      {/* Confirmation & Success Modals (Existing code...) */}
+      {/* Confirmation & Success Modals */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -617,7 +653,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                 <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
                 <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
                     <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        {/* ... */}
                         <div className="sm:flex sm:items-start">
                             <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 sm:mx-0 sm:h-10 sm:w-10">
                                 <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

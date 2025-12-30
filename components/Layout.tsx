@@ -59,8 +59,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Nigeria Association of Computer Science Students (NACOSS). All Rights Reserved.
+          <p className="text-center text-sm text-gray-500 flex flex-col sm:flex-row justify-center items-center gap-2">
+            <span>&copy; 2025 Nigeria Association of Computing Students (NACOSS). All Rights Reserved.</span>
+            <span className="hidden sm:inline text-gray-300">|</span>
+            <span className="font-semibold text-emerald-700">Designed by ABBTECH</span>
           </p>
         </div>
       </footer>
