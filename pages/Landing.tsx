@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/Button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const Landing: React.FC = () => {
@@ -23,10 +22,20 @@ export const Landing: React.FC = () => {
   return (
     <div className="relative min-h-screen bg-white overflow-hidden selection:bg-emerald-100 selection:text-emerald-900">
       
-      {/* Background Grid Pattern */}
-      <div className="absolute inset-0 bg-tech-grid pointer-events-none z-0"></div>
+      {/* --- BACKGROUND LAYERS --- */}
       
-      {/* Background Gradients for depth */}
+      {/* 1. Federal Poly Bida / CS Dept Themed Background Image (Subtle Overlay) */}
+      <div className="absolute inset-0 z-0">
+          {/* Using a high-quality 'Computer Lab/Campus' image to represent the CS Department */}
+          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-[0.06] mix-blend-multiply pointer-events-none"></div>
+          {/* Gradient overlay to ensure text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/90 to-white pointer-events-none"></div>
+      </div>
+
+      {/* 2. Existing Tech Grid Pattern */}
+      <div className="absolute inset-0 bg-tech-grid pointer-events-none z-0 opacity-50"></div>
+      
+      {/* 3. Existing Color Gradients for depth */}
       <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-50/50 rounded-full filter blur-3xl -translate-y-1/2 translate-x-1/3 z-0"></div>
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-emerald-50/50 rounded-full filter blur-3xl translate-y-1/3 -translate-x-1/3 z-0"></div>
 
@@ -37,20 +46,20 @@ export const Landing: React.FC = () => {
           {/* LEFT COLUMN: Typography & Actions */}
           <div className="space-y-8 animate-fade-in max-w-2xl">
             
-            {/* Trust Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm">
+            {/* Trust Badge - Updated for FPB */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm backdrop-blur-sm bg-opacity-80">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-semibold text-slate-600 tracking-wide">Trusted by NACOSS National Body</span>
+              <span className="text-xs font-semibold text-slate-600 tracking-wide">Official NACOSS Platform • <span className="text-emerald-700">Federal Poly Bida</span></span>
             </div>
 
-            {/* Headline */}
+            {/* Headline - Updated for Bida */}
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
-              The Standard for <br/>
-              <span className="relative inline-block">
-                Digital Voting.
+              The Future of Voting at <br/>
+              <span className="relative inline-block text-emerald-900">
+                Fed Poly Bida.
                 {/* Underline decoration */}
                 <svg className="absolute -bottom-2 left-0 w-full h-3 text-emerald-400 opacity-50" viewBox="0 0 100 10" preserveAspectRatio="none">
                   <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -58,10 +67,10 @@ export const Landing: React.FC = () => {
               </span>
             </h1>
 
-            {/* Subtext */}
+            {/* Subtext - Updated for CS Dept */}
             <p className="text-lg text-slate-600 leading-relaxed max-w-lg">
-              Run transparent, verifiable elections with military-grade security. 
-              From departmental executives to national delegates, ensure every voice is counted accurately on the blockchain.
+              Empowering the <strong>Department of Computer Science</strong> with a secure, transparent, and blockchain-backed e-voting system. 
+              Your voice matters in building a stronger NACOSS FPB Chapter.
             </p>
 
             {/* Buttons */}
@@ -86,20 +95,20 @@ export const Landing: React.FC = () => {
             <div className="pt-8 flex flex-wrap gap-6 text-sm font-medium text-slate-500">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Audit Ready
+                FPB Accredited
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                GDPR Compliant
+                Secure Ballot
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                256-bit Encrypted
+                Real-time Results
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Interactive Illustration */}
+          {/* RIGHT COLUMN: Interactive Illustration (Maintained Animations) */}
           <div className="relative h-[500px] w-full flex items-center justify-center animate-fade-in delay-200">
              
              {/* Ripple Circles Background */}
@@ -120,7 +129,7 @@ export const Landing: React.FC = () => {
                 <div className="w-40 h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
                    <div className="h-full bg-emerald-500 w-2/3 animate-[shimmer_2s_infinite]"></div>
                 </div>
-                <p className="text-xs text-slate-400 font-mono">Verifying Block...</p>
+                <p className="text-xs text-slate-400 font-mono">Verifying FPB Nodes...</p>
                 
                 {/* Grid overlay on card */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay pointer-events-none rounded-2xl"></div>
@@ -143,8 +152,8 @@ export const Landing: React.FC = () => {
                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
                 </div>
                 <div>
-                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Access</p>
-                   <p className="text-sm font-bold text-slate-800">Global</p>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Campus</p>
+                   <p className="text-sm font-bold text-slate-800">FPB Connected</p>
                 </div>
              </div>
 
@@ -155,7 +164,7 @@ export const Landing: React.FC = () => {
                 </div>
                 <div>
                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Results</p>
-                   <p className="text-sm font-bold text-slate-800">Real-time</p>
+                   <p className="text-sm font-bold text-slate-800">Live Feed</p>
                 </div>
              </div>
 
@@ -166,7 +175,7 @@ export const Landing: React.FC = () => {
                 </div>
                 <div>
                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Audit</p>
-                   <p className="text-sm font-bold text-slate-800">Immutable</p>
+                   <p className="text-sm font-bold text-slate-800">Verified</p>
                 </div>
              </div>
           </div>
@@ -184,24 +193,24 @@ export const Landing: React.FC = () => {
                                 <h2 className="text-3xl font-bold font-display text-slate-900 leading-tight">Real-Time Election Velocity</h2>
                             </div>
                             <p className="text-slate-600 text-lg leading-relaxed">
-                                Our blockchain-backed ledger processes votes with the precision of a high-frequency trading engine. Monitor voter turnout spikes and candidate momentum as they happen on the immutable ledger.
+                                Our blockchain-backed ledger processes votes with the precision of a high-frequency trading engine. Monitor voter turnout spikes across the Federal Polytechnic Bida campus as they happen.
                             </p>
                             <div className="grid grid-cols-2 gap-6 pt-4">
                                 <div className="p-5 bg-white rounded-xl shadow-sm border border-slate-100 transition-transform hover:-translate-y-1">
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">TPS (Tx/Sec)</p>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Votes/Sec</p>
                                         <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                                     </div>
                                     <p className="text-3xl font-bold text-slate-900 font-mono">1,240</p>
-                                    <p className="text-xs text-emerald-600 mt-1 font-medium">▲ 12% vs last hour</p>
+                                    <p className="text-xs text-emerald-600 mt-1 font-medium">▲ High Turnout</p>
                                 </div>
                                 <div className="p-5 bg-white rounded-xl shadow-sm border border-slate-100 transition-transform hover:-translate-y-1">
                                     <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Network Latency</p>
+                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">FPB Network</p>
                                         <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                                     </div>
                                     <p className="text-3xl font-bold text-slate-900 font-mono">~45ms</p>
-                                    <p className="text-xs text-blue-600 mt-1 font-medium">Global CDN Active</p>
+                                    <p className="text-xs text-blue-600 mt-1 font-medium">Low Latency</p>
                                 </div>
                             </div>
                        </div>
@@ -220,7 +229,7 @@ export const Landing: React.FC = () => {
                                     </div>
                                     <div className="text-xs font-mono text-slate-400 flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                        MARKET OPEN
+                                        POLLS OPEN
                                     </div>
                                 </div>
                                 
@@ -283,9 +292,9 @@ export const Landing: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 <div className="text-center max-w-3xl mx-auto mb-16">
                     <h2 className="text-emerald-600 font-bold tracking-wide uppercase text-sm mb-2">About The Association</h2>
-                    <h3 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 font-display">Nigeria Association of Computing Students</h3>
+                    <h3 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 font-display">NACOSS - Federal Poly Bida Chapter</h3>
                     <p className="text-lg text-slate-600 leading-relaxed">
-                        NACOSS is the largest student professional body in Sub-Saharan Africa. We foster IT excellence, promote technological innovation, and empower students across all tertiary institutions in Nigeria.
+                        We are the Bida Chapter of the largest student professional body in Sub-Saharan Africa. We foster IT excellence within Federal Polytechnic Bida, promoting innovation among students in Computer Science.
                     </p>
                 </div>
 
@@ -297,7 +306,7 @@ export const Landing: React.FC = () => {
                         </div>
                         <h4 className="text-xl font-bold text-slate-900 mb-3">Our Mission</h4>
                         <p className="text-slate-600 leading-relaxed">
-                            To facilitate opportunities for study, research, and IT application development, ensuring Nigeria remains at the forefront of the global digital economy.
+                            To facilitate opportunities for study, research, and IT application development, ensuring FPB students remain at the forefront of the digital economy.
                         </p>
                     </div>
 
@@ -306,9 +315,9 @@ export const Landing: React.FC = () => {
                         <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-6 border border-blue-100">
                             <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
-                        <h4 className="text-xl font-bold text-slate-900 mb-3">Continental Reach</h4>
+                        <h4 className="text-xl font-bold text-slate-900 mb-3">Campus Wide</h4>
                         <p className="text-slate-600 leading-relaxed">
-                            Serving over 350,000 members across six geopolitical zones. We are the umbrella body for students in Computer Science, Software Engineering, and related fields.
+                            Serving the vibrant student body of the Computer Science Department at Federal Polytechnic Bida, connecting ND and HND students.
                         </p>
                     </div>
 
@@ -327,20 +336,20 @@ export const Landing: React.FC = () => {
                 {/* Stats Strip */}
                 <div className="mt-20 border-t border-slate-200 pt-16 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                     <div className="group">
-                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">350k+</div>
-                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Active Members</div>
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">FPB</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Campus</div>
                     </div>
                     <div className="group">
-                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">6</div>
-                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Geo-Political Zones</div>
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">CS</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Department</div>
                     </div>
                      <div className="group">
                         <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">100%</div>
                         <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Student Led</div>
                     </div>
                      <div className="group">
-                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">1993</div>
-                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Est. Year</div>
+                        <div className="text-4xl font-extrabold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">1977</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">FPB Est. Year</div>
                     </div>
                 </div>
             </div>
