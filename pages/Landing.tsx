@@ -59,7 +59,7 @@ export const Landing: React.FC = () => {
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
               The Future of Voting at <br/>
               <span className="relative inline-block text-emerald-900">
-                Fed Poly Bida.
+                NACOSS.
                 {/* Underline decoration */}
                 <svg className="absolute -bottom-2 left-0 w-full h-3 text-emerald-400 opacity-50" viewBox="0 0 100 10" preserveAspectRatio="none">
                   <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="4" fill="none" />
