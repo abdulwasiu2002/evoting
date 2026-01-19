@@ -87,7 +87,7 @@ export const Landing: React.FC = () => {
                 onClick={() => navigate('/register-aspirant')}
                 className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-lg font-semibold hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center"
               >
-                I'm an Aspirant
+                Register as an Aspirant
               </button>
             </div>
 
