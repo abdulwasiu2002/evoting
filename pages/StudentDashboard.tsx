@@ -240,7 +240,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       const pageWidth = doc.internal.pageSize.getWidth();
       
       // Load QR Code only (No logos as requested)
-      const qrData = `NACOSS FORM\nName: ${myAspirantProfile.fullName}\nMatric: ${myAspirantProfile.matricNo}\nPos: ${myAspirantProfile.position}\nStatus: PAID\nPhone: ${myAspirantProfile.phone || 'N/A'}`;
+      const qrData = `NACOS FORM\nName: ${myAspirantProfile.fullName}\nMatric: ${myAspirantProfile.matricNo}\nPos: ${myAspirantProfile.position}\nStatus: PAID\nPhone: ${myAspirantProfile.phone || 'N/A'}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
       const qrImageData = await loadImage(qrUrl);
       
@@ -257,7 +257,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENTS", pageWidth / 2, 15, { align: "center" });
       
       doc.setFontSize(28);
-      doc.text("NACOSS", pageWidth / 2, 26, { align: "center" });
+      doc.text("NACOS", pageWidth / 2, 26, { align: "center" });
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -384,7 +384,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       const note = "NOTE: After completing and signing this form, please photocopy and submit one copy to the Electoral Chairman's Office.";
       doc.text(note, pageWidth / 2, y, { align: "center" });
 
-      doc.save("NACOSS_Nomination_Form.pdf");
+      doc.save("NACOS_Nomination_Form.pdf");
   };
 
   const groupedCandidates = positions.map(position => ({

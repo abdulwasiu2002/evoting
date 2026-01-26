@@ -357,7 +357,7 @@ export const AdminDashboard: React.FC = () => {
         doc.setFontSize(22);
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.text("NACOSS ELECTION REPORT", 14, 20);
+        doc.text("NACOS ELECTION REPORT", 14, 20);
         
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
@@ -414,10 +414,10 @@ export const AdminDashboard: React.FC = () => {
             doc.setPage(i);
             doc.setFontSize(8);
             doc.setTextColor(150);
-            doc.text(`Page ${i} of ${pageCount} - NACOSS E-Voting System`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+            doc.text(`Page ${i} of ${pageCount} - NACOS E-Voting System`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
         }
         
-        doc.save("NACOSS_Election_Report_Detailed.pdf");
+        doc.save("NACOS_Election_Report_Detailed.pdf");
     } catch (error: any) {
         console.error(error);
         alert(`Failed to generate report: ${error.message}`);

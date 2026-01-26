@@ -1,5 +1,5 @@
 {
-  "name": "NACOSS E-Voting",
-  "description": "The official e-voting platform for the Nigeria Association of Computing Students (NACOSS). Secure, transparent, and auditable elections.",
+  "name": "NACOS E-Voting",
+  "description": "The official e-voting platform for the Nigeria Association of Computing Students (NACOS). Secure, transparent, and auditable elections.",
   "requestFramePermissions": []
 }

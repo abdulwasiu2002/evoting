@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '../types';
@@ -24,10 +25,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => navigate('/')}>
                 <img 
                   src="https://nacos.org.ng/img/about.jpg" 
-                  alt="NACOSS Logo" 
+                  alt="NACOS Logo" 
                   className="h-10 w-10 object-cover rounded-full border border-emerald-100" 
                 />
-                <span className="ml-2 text-xl font-bold text-gray-900">NACOSS <span className="text-emerald-600">E-Voting</span></span>
+                <span className="ml-2 text-xl font-bold text-gray-900">NACOS</span>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -60,7 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <p className="text-center text-sm text-gray-500 flex flex-col sm:flex-row justify-center items-center gap-2">
-            <span>&copy; 2025 Nigeria Association of Computing Students (NACOSS). All Rights Reserved.</span>
+            <span>&copy; 2025 Nigeria Association of Computing Students (NACOS). All Rights Reserved.</span>
             <span className="hidden sm:inline text-gray-300">|</span>
             <span className="font-semibold text-emerald-700">Designed by ABBTECH</span>
           </p>

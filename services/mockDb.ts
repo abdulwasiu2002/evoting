@@ -21,7 +21,7 @@ const ASPIRANTS_KEY = 'univote_aspirants';
 // Initial Seed Data (Mock Mode)
 const seedAdmin: User = {
   id: 'admin-1',
-  fullName: 'NACOSS Administrator',
+  fullName: 'NACOS Administrator',
   matricNo: 'admin',
   department: 'Computer Science',
   role: UserRole.ADMIN,
@@ -57,7 +57,7 @@ const seedCandidates: Candidate[] = [
     matricNo: 'CS/2021/001',
     department: 'Computer Science',
     position: 'President',
-    manifesto: 'My vision is a NACOSS that connects every student to industry opportunities. I will launch the "Code & Earn" initiative and ensure transparent dues management.',
+    manifesto: 'My vision is a NACOS that connects every student to industry opportunities. I will launch the "Code & Earn" initiative and ensure transparent dues management.',
     photoUrl: 'https://picsum.photos/200/200?random=1'
   },
   {
@@ -746,7 +746,7 @@ class SupabaseDB implements IDatabaseService {
           // But here we just want to bootstrap if missing.
           console.log("Admin account not found. Attempting to create default admin...");
           const { data: newAdmin, error: createError } = await supabase.from('users').insert({
-            full_name: 'NACOSS Administrator',
+            full_name: 'NACOS Administrator',
             matric_no: 'admin',
             department: 'Computer Science',
             role: 'admin',
@@ -801,7 +801,7 @@ class SupabaseDB implements IDatabaseService {
             const { data: updated, error: updateError } = await supabase
                 .from('users').update(userPayload).eq('matric_no', data.matricNo).select().single();
             if (updateError) throw new Error(updateError.message);
-            await sendEmail('admins@nacoss.edu.ng', 'Re-Registration', `User ${data.fullName} re-registered`);
+            await sendEmail('admins@nacos.edu.ng', 'Re-Registration', `User ${data.fullName} re-registered`);
             return this.mapUser(updated);
         } else {
             throw new Error('Matric number already registered');
@@ -816,7 +816,7 @@ class SupabaseDB implements IDatabaseService {
       }
       throw new Error(error.message);
     }
-    await sendEmail('admins@nacoss.edu.ng', 'New Reg', `User ${data.fullName}`);
+    await sendEmail('admins@nacos.edu.ng', 'New Reg', `User ${data.fullName}`);
     return this.mapUser(inserted);
   }
 
