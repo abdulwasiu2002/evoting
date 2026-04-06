@@ -7,6 +7,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { isSupabaseConfigured } from '../services/supabaseClient';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'aspirants' | 'results' | 'analytics' | 'candidates' | 'positions' | 'departments' | 'audit' | 'settings'>('analytics');
@@ -914,11 +916,27 @@ export const AdminDashboard: React.FC = () => {
                  <div className="grid grid-cols-2 gap-6">
                      <div>
                          <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                         <input type="date" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={settings.startDate} onChange={e => setSettings({...settings, startDate: e.target.value})} required />
+                         <DatePicker
+                             selected={settings.startDate ? new Date(settings.startDate) : null}
+                             onChange={(date: Date | null) => setSettings({...settings, startDate: date ? date.toISOString() : ''})}
+                             showTimeSelect
+                             dateFormat="Pp"
+                             className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+                             placeholderText="Select start date"
+                             required
+                         />
                      </div>
                      <div>
                          <label className="block text-sm font-medium text-gray-700">End Date</label>
-                         <input type="date" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={settings.endDate} onChange={e => setSettings({...settings, endDate: e.target.value})} required />
+                         <DatePicker
+                             selected={settings.endDate ? new Date(settings.endDate) : null}
+                             onChange={(date: Date | null) => setSettings({...settings, endDate: date ? date.toISOString() : ''})}
+                             showTimeSelect
+                             dateFormat="Pp"
+                             className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+                             placeholderText="Select end date"
+                             required
+                         />
                      </div>
                  </div>
                  
