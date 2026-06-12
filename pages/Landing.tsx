@@ -2,6 +2,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { OutgoingExecutivesCarousel } from '../components/OutgoingExecutivesCarousel';
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -180,6 +181,11 @@ export const Landing: React.FC = () => {
              </div>
           </div>
         </div>
+      </div>
+
+      {/* --- OUTGOING EXECUTIVES CAROUSEL --- */}
+      <div className="relative z-20">
+        <OutgoingExecutivesCarousel />
       </div>
 
       {/* --- LIVE ELECTION VELOCITY CHART (Trading Style) --- */}

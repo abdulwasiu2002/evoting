@@ -1,5 +1,5 @@
 
-import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings, Aspirant, PaymentStatus } from '../types';
+import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings, Aspirant, PaymentStatus, OutgoingExecutive, ExecutiveStatus } from '../types';
 import { sendEmail } from './emailService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
@@ -17,6 +17,7 @@ const POSITIONS_KEY = 'univote_positions';
 const DEPARTMENTS_KEY = 'univote_departments';
 const SETTINGS_KEY = 'univote_settings';
 const ASPIRANTS_KEY = 'univote_aspirants';
+const EXECUTIVES_KEY = 'univote_executives';
 
 // Initial Seed Data (Mock Mode)
 const seedAdmin: User = {
@@ -77,6 +78,39 @@ const defaultSettings: ElectionSettings = {
   isVotingEnabled: true
 };
 
+const seedExecutives: OutgoingExecutive[] = [
+  {
+    id: 'exec-1',
+    fullName: 'David Olawale',
+    position: 'President',
+    session: '2025/2026 Administration',
+    startDate: '2025-01-01',
+    endDate: '2026-01-01',
+    biography: 'Served as the president, focusing on student welfarism and academic excellence.',
+    achievements: 'Launched the Code & Earn initiative. Secured 50 laptops for the department.',
+    appreciationMessage: 'Thank you for your support throughout my tenure. It was an honor to serve.',
+    quote: 'Leadership is service, not position.',
+    profileImage: 'https://picsum.photos/400/500?random=10',
+    status: ExecutiveStatus.OUTGOING,
+    createdAt: Date.now()
+  },
+  {
+    id: 'exec-2',
+    fullName: 'Sarah Johnson',
+    position: 'Vice President',
+    session: '2025/2026 Administration',
+    startDate: '2025-01-01',
+    endDate: '2026-01-01',
+    biography: 'Focused on student inclusivity and tech bootcamps.',
+    achievements: 'Organized 3 major hackathons. Mentored 100+ freshers.',
+    appreciationMessage: 'I am grateful to everyone who contributed to our success.',
+    quote: 'Great things in business are never done by one person.',
+    profileImage: 'https://picsum.photos/400/500?random=11',
+    status: ExecutiveStatus.OUTGOING,
+    createdAt: Date.now()
+  }
+];
+
 // Helper to simulate delay for Mock Mode
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -135,6 +169,12 @@ interface IDatabaseService {
       byLevel: {name: string, count: number}[],
       byDepartment: {name: string, count: number}[]
   }>;
+
+  // Outgoing Executives
+  getOutgoingExecutives(): Promise<OutgoingExecutive[]>;
+  addOutgoingExecutive(adminId: string, exec: Omit<OutgoingExecutive, 'id' | 'createdAt'>): Promise<OutgoingExecutive>;
+  updateOutgoingExecutive(adminId: string, exec: OutgoingExecutive): Promise<OutgoingExecutive>;
+  deleteOutgoingExecutive(adminId: string, execId: string): Promise<void>;
 }
 
 // ----------------------------------------------------------------------
@@ -203,6 +243,9 @@ class MockDB implements IDatabaseService {
       }
       if (!localStorage.getItem(ASPIRANTS_KEY)) {
         localStorage.setItem(ASPIRANTS_KEY, JSON.stringify([]));
+      }
+      if (!localStorage.getItem(EXECUTIVES_KEY)) {
+        localStorage.setItem(EXECUTIVES_KEY, JSON.stringify(seedExecutives));
       }
     } catch (e) {
       console.warn("Could not initialize local storage (Quota exceeded?)", e);
@@ -624,6 +667,42 @@ class MockDB implements IDatabaseService {
           byLevel: Object.entries(levelCounts).map(([name, count]) => ({name, count})),
           byDepartment: Object.entries(deptCounts).map(([name, count]) => ({name, count}))
       };
+  }
+
+  // --- OUTGOING EXECUTIVES ---
+  async getOutgoingExecutives(): Promise<OutgoingExecutive[]> {
+      await delay(300);
+      return this.getItems<OutgoingExecutive>(EXECUTIVES_KEY);
+  }
+
+  async addOutgoingExecutive(adminId: string, exec: Omit<OutgoingExecutive, 'id' | 'createdAt'>): Promise<OutgoingExecutive> {
+      const execs = this.getItems<OutgoingExecutive>(EXECUTIVES_KEY);
+      const newExec = {
+          ...exec,
+          id: `exec-${Date.now()}`,
+          createdAt: Date.now()
+      };
+      execs.push(newExec);
+      this.setItems(EXECUTIVES_KEY, execs);
+      this.addAudit(adminId, UserRole.ADMIN, 'add_executive', `Added executive ${newExec.fullName}`);
+      return newExec;
+  }
+
+  async updateOutgoingExecutive(adminId: string, exec: OutgoingExecutive): Promise<OutgoingExecutive> {
+      const execs = this.getItems<OutgoingExecutive>(EXECUTIVES_KEY);
+      const index = execs.findIndex(e => e.id === exec.id);
+      if (index === -1) throw new Error("Executive not found");
+      execs[index] = exec;
+      this.setItems(EXECUTIVES_KEY, execs);
+      this.addAudit(adminId, UserRole.ADMIN, 'update_executive', `Updated executive ${exec.fullName}`);
+      return exec;
+  }
+
+  async deleteOutgoingExecutive(adminId: string, execId: string): Promise<void> {
+      let execs = this.getItems<OutgoingExecutive>(EXECUTIVES_KEY);
+      execs = execs.filter(e => e.id !== execId);
+      this.setItems(EXECUTIVES_KEY, execs);
+      this.addAudit(adminId, UserRole.ADMIN, 'delete_executive', `Deleted an executive record`);
   }
 }
 
@@ -1161,6 +1240,78 @@ class SupabaseDB implements IDatabaseService {
       target_id: targetId,
       timestamp: Date.now()
     });
+  }
+
+  // --- OUTGOING EXECUTIVES ---
+  async getOutgoingExecutives(): Promise<OutgoingExecutive[]> {
+      const { data, error } = await supabase.from('outgoing_executives').select('*');
+      if (error) {
+          console.warn("outgoing_executives table might not exist in Supabase:", error);
+          return seedExecutives; // Fallback to mock data if table is missing so UI doesn't break
+      }
+      return (data || []).map((e: any) => ({
+          id: e.id,
+          fullName: e.full_name,
+          position: e.position,
+          session: e.session,
+          startDate: e.start_date,
+          endDate: e.end_date,
+          biography: e.biography,
+          achievements: e.achievements,
+          appreciationMessage: e.appreciation_message,
+          quote: e.quote,
+          profileImage: e.profile_image,
+          status: e.status as ExecutiveStatus,
+          createdAt: Number(e.created_at)
+      }));
+  }
+
+  async addOutgoingExecutive(adminId: string, exec: Omit<OutgoingExecutive, 'id' | 'createdAt'>): Promise<OutgoingExecutive> {
+      const payload = {
+          full_name: exec.fullName,
+          position: exec.position,
+          session: exec.session,
+          start_date: exec.startDate,
+          end_date: exec.endDate,
+          biography: exec.biography,
+          achievements: exec.achievements,
+          appreciation_message: exec.appreciationMessage,
+          quote: exec.quote,
+          profile_image: exec.profileImage,
+          status: exec.status,
+          created_at: Date.now()
+      };
+      const { data, error } = await supabase.from('outgoing_executives').insert(payload).select().single();
+      if (error) {
+          throw new Error('Database Error: Unable to add executive. ' + error.message);
+      }
+      this.logAudit(adminId, UserRole.ADMIN, 'add_executive', `Added executive ${exec.fullName}`);
+      return { ...exec, id: data.id, createdAt: data.created_at };
+  }
+
+  async updateOutgoingExecutive(adminId: string, exec: OutgoingExecutive): Promise<OutgoingExecutive> {
+      const payload = {
+          full_name: exec.fullName,
+          position: exec.position,
+          session: exec.session,
+          start_date: exec.startDate,
+          end_date: exec.endDate,
+          biography: exec.biography,
+          achievements: exec.achievements,
+          appreciation_message: exec.appreciationMessage,
+          quote: exec.quote,
+          profile_image: exec.profileImage,
+          status: exec.status
+      };
+      const { error } = await supabase.from('outgoing_executives').update(payload).eq('id', exec.id);
+      if (error) throw new Error(error.message);
+      this.logAudit(adminId, UserRole.ADMIN, 'update_executive', `Updated executive ${exec.fullName}`);
+      return exec;
+  }
+
+  async deleteOutgoingExecutive(adminId: string, execId: string): Promise<void> {
+      await supabase.from('outgoing_executives').delete().eq('id', execId);
+      this.logAudit(adminId, UserRole.ADMIN, 'delete_executive', `Deleted an executive record`);
   }
 }
 

@@ -98,3 +98,25 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
 }
+
+export enum ExecutiveStatus {
+  ACTIVE = 'Active Executive',
+  OUTGOING = 'Outgoing Executive',
+  ARCHIVED = 'Archived'
+}
+
+export interface OutgoingExecutive {
+  id: string;
+  fullName: string;
+  position: string;
+  session: string;
+  startDate: string;
+  endDate: string;
+  biography: string;
+  achievements: string;
+  appreciationMessage: string;
+  quote: string;
+  profileImage: string;
+  status: ExecutiveStatus;
+  createdAt: number;
+}

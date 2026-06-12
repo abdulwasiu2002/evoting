@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus } from '../types';
+import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus, OutgoingExecutive, ExecutiveStatus } from '../types';
 import { db } from '../services/mockDb';
 import { Button } from '../components/Button';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -11,9 +11,13 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'aspirants' | 'results' | 'analytics' | 'candidates' | 'positions' | 'departments' | 'audit' | 'settings'>('analytics');
+  const [activeTab, setActiveTab] = useState<'pending' | 'aspirants' | 'results' | 'analytics' | 'candidates' | 'positions' | 'departments' | 'audit' | 'settings' | 'executives'>('analytics');
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [aspirants, setAspirants] = useState<Aspirant[]>([]);
+  const [executives, setExecutives] = useState<OutgoingExecutive[]>([]);
+  const [isExecutiveModalOpen, setIsExecutiveModalOpen] = useState(false);
+  const [executiveForm, setExecutiveForm] = useState<Partial<OutgoingExecutive>>({});
+  const [executivePhotoPreview, setExecutivePhotoPreview] = useState<string | null>(null);
   const [results, setResults] = useState<any[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -168,7 +172,17 @@ export const AdminDashboard: React.FC = () => {
     
     if (activeTab === 'settings') fetchSettings();
 
+    if (activeTab === 'executives') {
+        fetchExecutives();
+        fetchPositions();
+    }
+
   }, [activeTab]);
+
+  const fetchExecutives = async () => {
+      const execs = await db.getOutgoingExecutives();
+      setExecutives(execs);
+  };
 
   const handleApproval = async (userId: string, approve: boolean) => {
     const reason = !approve ? prompt("Reason for rejection?") : undefined;
@@ -340,6 +354,73 @@ export const AdminDashboard: React.FC = () => {
       }
   }
 
+  const openAddExecutive = () => {
+      setExecutiveForm({
+         fullName: '',
+         position: positions[0]?.name || '',
+         session: '2025/2026 Administration',
+         startDate: '',
+         endDate: '',
+         biography: '',
+         achievements: '',
+         appreciationMessage: '',
+         quote: '',
+         profileImage: '',
+         status: ExecutiveStatus.OUTGOING
+      });
+      setExecutivePhotoPreview(null);
+      setIsExecutiveModalOpen(true);
+  };
+
+  const openEditExecutive = (exec: OutgoingExecutive) => {
+      setExecutiveForm({...exec});
+      setExecutivePhotoPreview(exec.profileImage);
+      setIsExecutiveModalOpen(true);
+  }
+
+  const handleDeleteExecutive = async (id: string) => {
+      if (confirm('Are you sure you want to delete this executive?')) {
+          await db.deleteOutgoingExecutive('admin-1', id);
+          fetchExecutives();
+      }
+  }
+
+  const handleExecutivePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64String = reader.result as string;
+              setExecutiveForm(prev => ({ ...prev, profileImage: base64String }));
+              setExecutivePhotoPreview(base64String);
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const handleSaveExecutive = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      const finalForm = {
+          ...executiveForm,
+          profileImage: executiveForm.profileImage || 'https://via.placeholder.com/400x500?text=No+Photo'
+      };
+      // Type assertion safe because required fields are enforced in form
+      try {
+          if (finalForm.id) {
+              await db.updateOutgoingExecutive('admin-1', finalForm as OutgoingExecutive);
+          } else {
+              await db.addOutgoingExecutive('admin-1', finalForm as Omit<OutgoingExecutive, 'id'|'createdAt'>);
+          }
+          setIsExecutiveModalOpen(false);
+          fetchExecutives();
+      } catch (err: any) {
+          alert("Error saving executive: " + err.message);
+      } finally {
+          setLoading(false);
+      }
+  }
+
   const generatePDFReport = async () => {
     setIsGeneratingReport(true);
     try {
@@ -482,7 +563,7 @@ export const AdminDashboard: React.FC = () => {
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-6 overflow-x-auto">
         <nav className="-mb-px flex space-x-6">
-          {['analytics', 'pending', 'aspirants', 'results', 'candidates', 'positions', 'departments', 'audit', 'settings'].map((tab) => (
+          {['analytics', 'pending', 'aspirants', 'results', 'candidates', 'positions', 'departments', 'audit', 'settings', 'executives'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
@@ -957,6 +1038,111 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       
+      {/* EXECUTIVES TAB */}
+      {activeTab === 'executives' && (
+        <div className="space-y-6 animate-fade-in-up">
+           <div className="flex justify-end">
+             <Button onClick={openAddExecutive}>+ Add New Executive</Button>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {executives.map(exec => (
+                 <div key={exec.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                    <div className="h-48 overflow-hidden bg-gray-100 relative">
+                        {exec.profileImage ? (
+                            <img src={exec.profileImage} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">No Photo</div>
+                        )}
+                        <div className="absolute top-2 right-2 flex space-x-1">
+                             <button onClick={() => openEditExecutive(exec)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50">✏️</button>
+                             <button onClick={() => handleDeleteExecutive(exec.id)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50 text-red-500">🗑️</button>
+                        </div>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col">
+                        <div className="flex justify-between items-start">
+                             <h3 className="text-lg font-bold text-gray-900">{exec.fullName}</h3>
+                             <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full ${exec.status === ExecutiveStatus.ACTIVE ? 'bg-green-100 text-green-700' : exec.status === ExecutiveStatus.OUTGOING ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                                 {exec.status}
+                             </span>
+                        </div>
+                        <p className="text-sm text-emerald-600 font-medium">{exec.position}</p>
+                        <p className="text-xs text-gray-500 mt-1">{exec.session}</p>
+                    </div>
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+      
+      {/* EXECUTIVE MODAL */}
+      {isExecutiveModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                  <h3 className="text-lg font-bold mb-4">{executiveForm.id ? 'Edit Executive' : 'Add New Executive'}</h3>
+                  <form onSubmit={handleSaveExecutive} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                              <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.fullName || ''} onChange={e => setExecutiveForm({...executiveForm, fullName: e.target.value})} required />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Position</label>
+                              <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.position || ''} onChange={e => setExecutiveForm({...executiveForm, position: e.target.value})} required />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Session (e.g. 2025/2026 Admin)</label>
+                              <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.session || ''} onChange={e => setExecutiveForm({...executiveForm, session: e.target.value})} required />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Status</label>
+                              <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.status || ExecutiveStatus.OUTGOING} onChange={e => setExecutiveForm({...executiveForm, status: e.target.value as ExecutiveStatus})}>
+                                  <option value={ExecutiveStatus.ACTIVE}>{ExecutiveStatus.ACTIVE}</option>
+                                  <option value={ExecutiveStatus.OUTGOING}>{ExecutiveStatus.OUTGOING}</option>
+                                  <option value={ExecutiveStatus.ARCHIVED}>{ExecutiveStatus.ARCHIVED}</option>
+                              </select>
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                              <input type="date" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.startDate || ''} onChange={e => setExecutiveForm({...executiveForm, startDate: e.target.value})} required />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-medium text-gray-700">End Date</label>
+                              <input type="date" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.endDate || ''} onChange={e => setExecutiveForm({...executiveForm, endDate: e.target.value})} required />
+                          </div>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Biography</label>
+                          <textarea rows={3} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.biography || ''} onChange={e => setExecutiveForm({...executiveForm, biography: e.target.value})} required />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Key Achievements</label>
+                          <textarea rows={2} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.achievements || ''} onChange={e => setExecutiveForm({...executiveForm, achievements: e.target.value})} required />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Appreciation Message</label>
+                          <textarea rows={2} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.appreciationMessage || ''} onChange={e => setExecutiveForm({...executiveForm, appreciationMessage: e.target.value})} required />
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Personal Quote</label>
+                          <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.quote || ''} onChange={e => setExecutiveForm({...executiveForm, quote: e.target.value})} required />
+                      </div>
+
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700">Photo</label>
+                          <input type="file" className="mt-1 block w-full" accept="image/*" onChange={handleExecutivePhotoFileChange} />
+                          {executivePhotoPreview && <img src={executivePhotoPreview} className="mt-2 h-20 w-20 object-cover rounded" />}
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                          <Button type="button" variant="outline" onClick={() => setIsExecutiveModalOpen(false)}>Cancel</Button>
+                          <Button type="submit" isLoading={loading}>Save</Button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
       {/* CANDIDATE MODAL */}
       {isCandidateModalOpen && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
