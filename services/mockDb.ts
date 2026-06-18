@@ -150,7 +150,7 @@ interface IDatabaseService {
   processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
   
   // Payment
-  markPaymentAsPending(aspirantId: string): Promise<void>;
+  markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void>;
   verifyPayment(adminId: string, aspirantId: string): Promise<void>;
 
   // Voting
@@ -491,11 +491,14 @@ class MockDB implements IDatabaseService {
     return this.getItems<Aspirant>(ASPIRANTS_KEY);
   }
 
-  async markPaymentAsPending(aspirantId: string): Promise<void> {
+  async markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void> {
       const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
       const idx = aspirants.findIndex(a => a.id === aspirantId);
       if (idx !== -1) {
           aspirants[idx].paymentStatus = PaymentStatus.PENDING;
+          if (receiptBase64) {
+              aspirants[idx].paymentReceiptUrl = receiptBase64;
+          }
           this.setItems(ASPIRANTS_KEY, aspirants);
       }
   }
@@ -991,8 +994,18 @@ class SupabaseDB implements IDatabaseService {
       return (data || []).map(this.mapAspirant);
   }
 
-  async markPaymentAsPending(aspirantId: string): Promise<void> {
-      await supabase.from('aspirants').update({ payment_status: PaymentStatus.PENDING }).eq('id', aspirantId);
+  async markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void> {
+      const updateData: any = { payment_status: PaymentStatus.PENDING };
+      if (receiptBase64) {
+          updateData.payment_receipt_url = receiptBase64;
+      }
+      const { error } = await supabase.from('aspirants').update(updateData).eq('id', aspirantId);
+      if (error) {
+          if (error.message?.includes('column "payment_receipt_url" of relation "aspirants" does not exist')) {
+              throw new Error('Database Error: Missing "payment_receipt_url" column. Please run this SQL in Supabase: ALTER TABLE aspirants ADD COLUMN payment_receipt_url TEXT;');
+          }
+          throw new Error(error.message);
+      }
   }
 
   async verifyPayment(adminId: string, aspirantId: string): Promise<void> {
@@ -1063,6 +1076,7 @@ class SupabaseDB implements IDatabaseService {
           phone: a.phone,
           status: a.status,
           paymentStatus: a.payment_status || PaymentStatus.UNPAID,
+          paymentReceiptUrl: a.payment_receipt_url,
           createdAt: Number(a.created_at)
       };
   }

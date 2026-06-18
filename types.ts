@@ -67,6 +67,7 @@ export interface Aspirant {
   phone?: string; // Added
   status: ApprovalStatus;
   paymentStatus: PaymentStatus;
+  paymentReceiptUrl?: string; // For the aspirant to prove payment
   createdAt: number;
 }
 

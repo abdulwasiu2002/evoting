@@ -103,6 +103,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastVoteReceipts, setLastVoteReceipts] = useState<string[]>([]);
+  const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -218,11 +219,11 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   };
 
   const handleConfirmPayment = async () => {
-      if (!myAspirantProfile) return;
+      if (!myAspirantProfile || !receiptBase64) return;
       try {
           setSubmitting(true);
-          await db.markPaymentAsPending(myAspirantProfile.id);
-          setMyAspirantProfile({ ...myAspirantProfile, paymentStatus: PaymentStatus.PENDING });
+          await db.markPaymentAsPending(myAspirantProfile.id, receiptBase64);
+          setMyAspirantProfile({ ...myAspirantProfile, paymentStatus: PaymentStatus.PENDING, paymentReceiptUrl: receiptBase64 });
           setShowPaymentModal(false);
           alert("Payment confirmation sent. Please wait for admin approval.");
       } catch (e: any) {
@@ -633,11 +634,34 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                         </div>
                         
                         <div className="bg-yellow-50 p-3 rounded text-sm text-yellow-800 mb-4">
-                            <strong>Note:</strong> After transfer, click "I have made payment" below. Admin approval is required before your form is valid.
+                            <strong>Note:</strong> After transfer, please upload your payment receipt below and click "I have made payment". Admin approval is required before your form is valid.
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Receipt / Proof</label>
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            const base64String = reader.result as string;
+                                            setReceiptBase64(base64String);
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                            />
+                            {receiptBase64 && (
+                                <div className="mt-2 text-sm text-emerald-600">Receipt image attached securely.</div>
+                            )}
                         </div>
                     </div>
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                        <Button onClick={handleConfirmPayment} className="w-full sm:ml-3 sm:w-auto" isLoading={submitting}>I have made the payment</Button>
+                        <Button onClick={handleConfirmPayment} disabled={!receiptBase64} className="w-full sm:ml-3 sm:w-auto" isLoading={submitting}>I have made the payment</Button>
                         <Button variant="outline" onClick={() => setShowPaymentModal(false)} className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto">Cancel</Button>
                     </div>
                 </div>

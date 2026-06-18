@@ -1247,8 +1247,17 @@ export const AdminDashboard: React.FC = () => {
                                     <p className="font-bold">{reviewingAspirant.fullName}</p>
                                     <p>{reviewingAspirant.position}</p>
                                 </div>
+                                {reviewingAspirant.paymentReceiptUrl && (
+                                    <div>
+                                        <h4 className="text-sm font-bold text-gray-700 mb-2">Payment Receipt</h4>
+                                        <div className="border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                                            <img src={reviewingAspirant.paymentReceiptUrl} alt="Payment Receipt" className="max-w-full max-h-64 object-contain" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="space-y-4">
+                                <h4 className="text-sm font-bold text-gray-700 mb-2">Passport Photo</h4>
                                 <div className="h-48 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
                                     <img src={reviewingAspirant.passportUrl} className="h-full w-full object-cover" />
                                 </div>
