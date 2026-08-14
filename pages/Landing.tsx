@@ -75,15 +75,22 @@ export const Landing: React.FC = () => {
             </p>
 
             {/* Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-2 justify-center lg:justify-start">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-2 justify-center lg:justify-start">
               <button 
                 onClick={() => navigate('/login')}
                 className="px-8 py-4 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2 w-full sm:w-auto"
               >
-                Access Student Portal
+                Login
                 <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
               </button>
               
+              <button 
+                onClick={() => navigate('/register')}
+                className="px-8 py-4 bg-emerald-600 text-white border border-emerald-500 rounded-lg font-semibold hover:bg-emerald-700 transition-all shadow-sm flex items-center justify-center w-full sm:w-auto"
+              >
+                Register as a Student
+              </button>
+
               <button 
                 onClick={() => navigate('/register-aspirant')}
                 className="px-8 py-4 bg-white text-slate-700 border border-slate-200 rounded-lg font-semibold hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center w-full sm:w-auto"
