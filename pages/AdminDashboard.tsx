@@ -424,83 +424,374 @@ export const AdminDashboard: React.FC = () => {
   const generatePDFReport = async () => {
     setIsGeneratingReport(true);
     try {
+        // Fetch fresh up-to-date data
+        const [freshResults, freshCandidates, freshPositions, freshDeptStats, freshSettings, freshDepts] = await Promise.all([
+             db.getResults(),
+             db.getCandidates(),
+             db.getPositions(),
+             db.getDepartmentStats(),
+             db.getElectionSettings(),
+             db.getDepartments()
+        ]);
+
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         
-        const currentTotalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
-        const currentTotalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
+        // Merge candidates with their votes
+        const candidatesWithVotes = freshCandidates.map(c => {
+            const v = freshResults.find(r => r.candidateId === c.id);
+            return {
+                ...c,
+                votes: v ? v.count : 0
+            };
+        });
+
+        const currentTotalVotes = freshResults.reduce((acc, curr) => acc + curr.count, 0);
+        const currentTotalRegistered = freshDeptStats.reduce((acc, curr) => acc + curr.count, 0);
+        const activePosCount = freshPositions.length > 0 ? freshPositions.length : 1;
         const turnoutPercentage = currentTotalRegistered > 0 
-            ? Math.round((currentTotalVotes / (currentTotalRegistered * positions.length || 1)) * 100) 
+            ? Math.round((currentTotalVotes / (currentTotalRegistered * activePosCount)) * 100) 
             : 0;
 
-        // --- HEADER ---
-        doc.setFillColor(16, 185, 129); // Emerald-500
-        doc.rect(0, 0, pageWidth, 40, 'F');
+        // Position names to evaluate
+        const positionNames: string[] = [];
+        freshPositions.forEach(p => {
+            if (!positionNames.some(pn => pn.toLowerCase() === p.name.toLowerCase())) {
+                positionNames.push(p.name);
+            }
+        });
+        freshCandidates.forEach(c => {
+            if (!positionNames.some(pn => pn.toLowerCase() === c.position.toLowerCase())) {
+                positionNames.push(c.position);
+            }
+        });
+
+        // Determine Winners for each position
+        const winnersList: {
+            position: string;
+            winnerName: string;
+            department: string;
+            matricNo: string;
+            votes: string;
+            status: string;
+            isUnopposed: boolean;
+            isTie: boolean;
+        }[] = [];
+
+        positionNames.forEach(posName => {
+            const posCandidates = candidatesWithVotes.filter(
+                c => c.position.trim().toLowerCase() === posName.trim().toLowerCase()
+            );
+
+            if (posCandidates.length === 0) {
+                winnersList.push({
+                    position: posName,
+                    winnerName: "No Candidate Registered",
+                    department: "-",
+                    matricNo: "-",
+                    votes: "-",
+                    status: "Vacant (No Contestant)",
+                    isUnopposed: false,
+                    isTie: false
+                });
+            } else if (posCandidates.length === 1) {
+                // Single candidate who contested for this position -> won the election
+                const singleCand = posCandidates[0];
+                winnersList.push({
+                    position: posName,
+                    winnerName: singleCand.name,
+                    department: singleCand.department || 'N/A',
+                    matricNo: singleCand.matricNo || 'N/A',
+                    votes: `${singleCand.votes} votes`,
+                    status: "Elected Winner (Unopposed)",
+                    isUnopposed: true,
+                    isTie: false
+                });
+            } else {
+                // Multiple candidates contested -> determine highest vote getter
+                posCandidates.sort((a, b) => b.votes - a.votes);
+                const totalPosVotes = posCandidates.reduce((sum, c) => sum + c.votes, 0);
+                const highestVotes = posCandidates[0].votes;
+                const topCandidates = posCandidates.filter(c => c.votes === highestVotes);
+
+                if (topCandidates.length === 1) {
+                    const winner = topCandidates[0];
+                    const percentage = totalPosVotes > 0 ? Math.round((winner.votes / totalPosVotes) * 100) : 0;
+                    winnersList.push({
+                        position: posName,
+                        winnerName: winner.name,
+                        department: winner.department || 'N/A',
+                        matricNo: winner.matricNo || 'N/A',
+                        votes: `${winner.votes} votes (${percentage}%)`,
+                        status: "Declared Winner (Highest Votes)",
+                        isUnopposed: false,
+                        isTie: false
+                    });
+                } else {
+                    // Tie between top candidates
+                    const names = topCandidates.map(c => c.name).join(" / ");
+                    winnersList.push({
+                        position: posName,
+                        winnerName: names,
+                        department: "Multiple",
+                        matricNo: "-",
+                        votes: `${highestVotes} votes each`,
+                        status: "Tie (Equal Votes for 1st)",
+                        isUnopposed: false,
+                        isTie: true
+                    });
+                }
+            }
+        });
+
+        // --- PDF HEADER (Green Banner) ---
+        doc.setFillColor(4, 120, 87); // Emerald-700 (#047857)
+        doc.rect(0, 0, pageWidth, 42, 'F');
         
-        doc.setFontSize(22);
+        doc.setFontSize(16);
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.text("NACOS ELECTION REPORT", 14, 20);
+        doc.text("NIGERIA ASSOCIATION OF COMPUTING STUDENTS (NACOS)", pageWidth / 2, 16, { align: 'center' });
         
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 32);
-
-        // --- EXECUTIVE SUMMARY ---
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("EXECUTIVE SUMMARY", 14, 55);
-
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        
-        const summaryY = 65;
-        doc.text(`Total Registered Students: ${currentTotalRegistered}`, 14, summaryY);
-        doc.text(`Total Votes Cast: ${currentTotalVotes}`, 14, summaryY + 8);
-        doc.text(`Voter Turnout: ${turnoutPercentage}%`, 14, summaryY + 16);
-        
-        doc.text(`Election Status: ${settings.isVotingEnabled ? 'Ongoing / Active' : 'Closed / Concluded'}`, 110, summaryY);
-        doc.text(`Departments Participating: ${departments.length}`, 110, summaryY + 8);
-
-        // --- DEPARTMENT BREAKDOWN TABLE ---
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text("REGISTRATION BY DEPARTMENT", 14, 95);
+        doc.text("OFFICIAL ELECTION REPORT & DECLARATION OF WINNERS", pageWidth / 2, 26, { align: 'center' });
+        
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Generated on: ${new Date().toLocaleString()}  |  System Status: ${freshSettings.isVotingEnabled ? 'Active Voting' : 'Election Concluded'}`, pageWidth / 2, 35, { align: 'center' });
 
-        const deptRows = departmentStats.map(d => [d.name, d.count]);
+        // --- EXECUTIVE SUMMARY SECTION ---
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("1. ELECTION EXECUTIVE SUMMARY", 14, 52);
+
+        // Summary Card Box
+        doc.setDrawColor(226, 232, 240);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(14, 56, pageWidth - 28, 26, 3, 3, 'FD');
+
+        doc.setFontSize(9.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(51, 65, 85);
+        
+        const sumY = 64;
+        doc.text(`• Total Registered Voters: ${currentTotalRegistered}`, 20, sumY);
+        doc.text(`• Total Votes Cast: ${currentTotalVotes}`, 20, sumY + 8);
+        doc.text(`• Overall Voter Turnout: ${turnoutPercentage}%`, 20, sumY + 16);
+        
+        doc.text(`• Total Positions Contested: ${positionNames.length}`, 110, sumY);
+        doc.text(`• Total Candidates: ${freshCandidates.length}`, 110, sumY + 8);
+        doc.text(`• Election State: ${freshSettings.isVotingEnabled ? 'Voting In Progress' : 'Concluded & Certified'}`, 110, sumY + 16);
+
+        // --- SECTION 2: OFFICIAL WINNERS TABLE ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(4, 120, 87);
+        doc.text("2. OFFICIAL ELECTION WINNERS (ELECTED CANDIDATES)", 14, 92);
+
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100, 116, 139);
+        doc.text("Official declaration of winning candidates. Contested winners and single-candidate (unopposed) winners are indicated.", 14, 97);
+
+        const winnersTableRows = winnersList.map((w, index) => [
+            index + 1,
+            w.position,
+            w.winnerName,
+            w.department,
+            w.votes,
+            w.status
+        ]);
+
+        autoTable(doc, {
+            startY: 101,
+            head: [["#", "Position", "Elected Candidate", "Department", "Votes Won", "Electoral Status"]],
+            body: winnersTableRows,
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [4, 120, 87], 
+                textColor: [255, 255, 255], 
+                fontStyle: 'bold',
+                fontSize: 9,
+                halign: 'left'
+            },
+            bodyStyles: {
+                fontSize: 8.5,
+                textColor: [30, 41, 59]
+            },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 38, fontStyle: 'bold' },
+                2: { cellWidth: 42, fontStyle: 'bold' },
+                3: { cellWidth: 30 },
+                4: { cellWidth: 28, halign: 'center' },
+                5: { cellWidth: 36, fontStyle: 'bold' }
+            },
+            didParseCell: (data) => {
+                if (data.section === 'body') {
+                    const statusText = data.row.raw[5] as string;
+                    if (statusText?.includes('Winner') || statusText?.includes('Elected')) {
+                        data.cell.styles.fillColor = [240, 253, 244]; // Light emerald tint for winners
+                    } else if (statusText?.includes('Tie')) {
+                        data.cell.styles.fillColor = [254, 243, 199]; // Light amber for tie
+                    }
+                }
+            }
+        });
+
+        // --- SECTION 3: DETAILED CANDIDATES BREAKDOWN TABLE ---
+        const detailedStartY = (doc as any).lastAutoTable.finalY + 14;
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text("3. DETAILED RESULTS BREAKDOWN (ALL CANDIDATES)", 14, detailedStartY);
+
+        const allCandidatesRows: any[] = [];
+        positionNames.forEach(posName => {
+            const posCandidates = candidatesWithVotes.filter(
+                c => c.position.trim().toLowerCase() === posName.trim().toLowerCase()
+            );
+            posCandidates.sort((a, b) => b.votes - a.votes);
+            const totalPosVotes = posCandidates.reduce((sum, c) => sum + c.votes, 0);
+            const maxVotes = posCandidates.length > 0 ? posCandidates[0].votes : 0;
+
+            posCandidates.forEach((c) => {
+                const pct = totalPosVotes > 0 ? `${((c.votes / totalPosVotes) * 100).toFixed(1)}%` : '0.0%';
+                let resultBadge = "Contestant";
+                if (posCandidates.length === 1) {
+                    resultBadge = "WINNER (Unopposed)";
+                } else if (c.votes === maxVotes && maxVotes > 0) {
+                    const topCount = posCandidates.filter(tc => tc.votes === maxVotes).length;
+                    resultBadge = topCount > 1 ? "TIED WINNER" : "WINNER";
+                } else {
+                    resultBadge = "Runner-up";
+                }
+
+                allCandidatesRows.push([
+                    posName,
+                    c.name,
+                    c.matricNo || 'N/A',
+                    c.department || 'N/A',
+                    c.votes,
+                    pct,
+                    resultBadge
+                ]);
+            });
+        });
+
+        autoTable(doc, {
+            startY: detailedStartY + 5,
+            head: [["Position", "Candidate Name", "Matric No.", "Department", "Votes", "Vote %", "Outcome"]],
+            body: allCandidatesRows,
+            theme: 'striped',
+            headStyles: { 
+                fillColor: [75, 85, 99], 
+                textColor: [255, 255, 255], 
+                fontStyle: 'bold',
+                fontSize: 8.5
+            },
+            bodyStyles: {
+                fontSize: 8,
+                textColor: [30, 41, 59]
+            },
+            columnStyles: {
+                0: { cellWidth: 35 },
+                1: { cellWidth: 38, fontStyle: 'bold' },
+                2: { cellWidth: 26 },
+                3: { cellWidth: 26 },
+                4: { cellWidth: 16, halign: 'center' },
+                5: { cellWidth: 18, halign: 'center' },
+                6: { cellWidth: 25, fontStyle: 'bold' }
+            },
+            didParseCell: (data) => {
+                if (data.section === 'body' && data.column.index === 6) {
+                    const val = data.cell.raw as string;
+                    if (val?.includes('WINNER')) {
+                        data.cell.styles.textColor = [4, 120, 87];
+                    }
+                }
+            }
+        });
+
+        // --- SECTION 4: DEPARTMENT BREAKDOWN TABLE ---
+        const deptStartY = (doc as any).lastAutoTable.finalY + 14;
+
+        // Check if new page is needed for department table & signatures
+        if (deptStartY > 220) {
+            doc.addPage();
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            doc.text("4. VOTER REGISTRATION BY DEPARTMENT", 14, 20);
+        } else {
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            doc.text("4. VOTER REGISTRATION BY DEPARTMENT", 14, deptStartY);
+        }
+
+        const deptRows = freshDeptStats.map(d => [
+            d.name, 
+            d.count, 
+            currentTotalRegistered > 0 ? `${((d.count / currentTotalRegistered) * 100).toFixed(1)}%` : '0%'
+        ]);
         
         autoTable(doc, {
-            startY: 100,
-            head: [["Department", "Registered Students"]],
+            startY: deptStartY > 220 ? 25 : deptStartY + 5,
+            head: [["Department Name", "Registered Voters", "Share %"]],
             body: deptRows,
             theme: 'grid',
-            headStyles: { fillColor: [75, 85, 99] }, 
+            headStyles: { fillColor: [71, 85, 105], fontSize: 8.5 },
+            bodyStyles: { fontSize: 8 }
         });
 
-        const resultsStartY = (doc as any).lastAutoTable.finalY + 20;
+        // --- OFFICIAL CERTIFICATION / SIGN-OFF BLOCK ---
+        const signStartY = (doc as any).lastAutoTable.finalY + 16;
+        const finalSignY = signStartY > 240 ? (doc.addPage(), 30) : signStartY;
 
-        doc.text("DETAILED ELECTION RESULTS", 14, resultsStartY - 5);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text("OFFICIAL CERTIFICATION & ENDORSEMENT", 14, finalSignY);
 
-        const resultRows = results.map(item => [item.position, item.name, item.votes]);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(71, 85, 105);
+        doc.text("We hereby certify that the results and winners declared herein are true and accurate as recorded by the NACOS Electronic Voting System.", 14, finalSignY + 6);
 
-        autoTable(doc, {
-            startY: resultsStartY,
-            head: [["Position", "Candidate", "Votes"]],
-            body: resultRows,
-            theme: 'striped',
-            headStyles: { fillColor: [4, 120, 87] },
-        });
+        const sigLineY = finalSignY + 26;
+        
+        // Chairman signature line
+        doc.setDrawColor(148, 163, 184);
+        doc.setLineWidth(0.5);
+        doc.line(14, sigLineY, 80, sigLineY);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text("ELCOM Chairman", 14, sigLineY + 5);
+        doc.setFont("helvetica", "normal");
+        doc.text("Signature & Date", 14, sigLineY + 9);
 
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        for(let i = 1; i <= pageCount; i++) {
+        // Staff Adviser signature line
+        doc.line(110, sigLineY, 180, sigLineY);
+        doc.setFont("helvetica", "bold");
+        doc.text("Staff Adviser / Electoral Patron", 110, sigLineY + 5);
+        doc.setFont("helvetica", "normal");
+        doc.text("Signature & Date", 110, sigLineY + 9);
+
+        // Page Numbers on all pages
+        const totalPageCount = (doc as any).internal.getNumberOfPages();
+        for(let i = 1; i <= totalPageCount; i++) {
             doc.setPage(i);
             doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`Page ${i} of ${pageCount} - NACOS E-Voting System`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+            doc.setTextColor(148, 163, 184);
+            doc.text(`Page ${i} of ${totalPageCount} - NACOS E-Voting System Official Report`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
         }
         
-        doc.save("NACOS_Election_Report_Detailed.pdf");
+        doc.save("NACOS_Official_Election_Report_Winners.pdf");
     } catch (error: any) {
         console.error(error);
         alert(`Failed to generate report: ${error.message}`);
@@ -815,39 +1106,77 @@ export const AdminDashboard: React.FC = () => {
 
       {/* RESULTS TAB */}
       {activeTab === 'results' && (
-        <div className="bg-white shadow sm:rounded-lg overflow-hidden animate-fade-in-up">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vote Count</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {results.map((row, idx) => {
-                  const totalForPos = results.filter(r => r.position === row.position).reduce((acc, curr) => acc + curr.votes, 0);
-                  const percent = totalForPos > 0 ? ((row.votes / totalForPos) * 100).toFixed(1) : '0.0';
-                  
-                  return (
-                    <tr key={idx}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{row.position}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">{row.votes}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center">
-                                <span className="mr-2">{percent}%</span>
-                                <div className="w-24 bg-gray-200 rounded-full h-2.5">
-                                    <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${percent}%` }}></div>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                  );
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-6 animate-fade-in-up">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Live Election Results & Tally</h3>
+              <p className="text-sm text-slate-500">Real-time vote distribution across all contested positions.</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={generatePDFReport} className="bg-emerald-700 hover:bg-emerald-800 text-white" isLoading={isGeneratingReport}>
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Download Winners Report (PDF)
+              </Button>
+              <Button variant="outline" onClick={exportExcelCSV}>
+                Export CSV
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-slate-100">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vote Count</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {results.map((row, idx) => {
+                    const samePos = results.filter(r => r.position === row.position);
+                    const totalForPos = samePos.reduce((acc, curr) => acc + curr.votes, 0);
+                    const percent = totalForPos > 0 ? ((row.votes / totalForPos) * 100).toFixed(1) : '0.0';
+                    const maxVotes = Math.max(...samePos.map(r => r.votes));
+                    const isSingle = samePos.length === 1;
+                    const isWinner = (isSingle && row.votes >= 0) || (row.votes === maxVotes && maxVotes > 0);
+                    
+                    return (
+                      <tr key={idx} className={isWinner ? "bg-emerald-50/40" : ""}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{row.position}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">{row.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono font-bold">{row.votes}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex items-center">
+                                  <span className="mr-2 w-12 text-right">{percent}%</span>
+                                  <div className="w-24 bg-gray-200 rounded-full h-2.5">
+                                      <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${percent}%` }}></div>
+                                  </div>
+                              </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {isSingle ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                👑 Winner (Unopposed)
+                              </span>
+                            ) : isWinner ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                👑 Leading / Winner
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                Contestant
+                              </span>
+                            )}
+                          </td>
+                      </tr>
+                    );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
