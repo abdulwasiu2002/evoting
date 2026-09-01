@@ -107,22 +107,46 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [c, v, p, s, r, asps] = await Promise.all([
-        db.getCandidates(),
-        db.getMyVotes(user.id),
-        db.getPositions(),
-        db.getElectionSettings(),
-        db.getResults(),
-        db.getAspirants()
-      ]);
-      setCandidates(c);
-      setMyVotes(v);
-      setPositions(p);
-      setSettings(s);
-      setResults(r);
-      const myAsp = asps.find(a => a.matricNo === user.matricNo);
-      setMyAspirantProfile(myAsp || null);
-      setLoading(false);
+      try {
+        // Fetch critical voting data first
+        const [p, s, v, c] = await Promise.all([
+          db.getPositions().catch(e => { console.error("Positions error:", e); return []; }),
+          db.getElectionSettings().catch(e => { console.error("Settings error:", e); return null; }),
+          db.getMyVotes(user.id).catch(e => { console.error("MyVotes error:", e); return []; }),
+          db.getVotingCandidates ? db.getVotingCandidates().catch(e => { console.error("Candidates error:", e); return []; }) : db.getCandidates().catch(e => { console.error("Candidates error:", e); return []; })
+        ]);
+        
+        setPositions(p);
+        setSettings(s);
+        setMyVotes(v);
+        setCandidates(c as Candidate[]);
+      } catch (error) {
+        console.error("Critical dashboard data load error:", error);
+      } finally {
+        setLoading(false); // Make sure dashboard loads even if some requests fail
+      }
+
+      // Fetch optional/secondary data without blocking the UI
+      try {
+        if (db.getMyAspirantProfile) {
+          const myAsp = await db.getMyAspirantProfile(user.matricNo);
+          setMyAspirantProfile(myAsp);
+        } else {
+          const asps = await db.getAspirants();
+          setMyAspirantProfile(asps.find(a => a.matricNo === user.matricNo) || null);
+        }
+      } catch (e) {
+        console.error("Error loading aspirant profile:", e);
+      }
+      
+      try {
+        // Only load results if the student is also a candidate, to check their own votes
+        // Or load them asynchronously for everyone if required by the UI
+        const r = await db.getResults();
+        setResults(r);
+      } catch (e) {
+        console.error("Error loading results:", e);
+      }
     };
     fetchData();
   }, [user.id, user.matricNo]);

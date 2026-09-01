@@ -147,6 +147,7 @@ interface IDatabaseService {
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
   }): Promise<void>;
   getAspirants(): Promise<Aspirant[]>;
+  getMyAspirantProfile(matricNo: string): Promise<Aspirant | null>;
   processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
   
   // Payment
@@ -155,6 +156,7 @@ interface IDatabaseService {
 
   // Voting
   getCandidates(): Promise<Candidate[]>;
+  getVotingCandidates(): Promise<Partial<Candidate>[]>;
   addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate>;
   updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate>;
   removeCandidate(adminId: string, candidateId: string): Promise<void>;
@@ -491,6 +493,11 @@ class MockDB implements IDatabaseService {
     return this.getItems<Aspirant>(ASPIRANTS_KEY);
   }
 
+  async getMyAspirantProfile(matricNo: string): Promise<Aspirant | null> {
+    const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
+    return aspirants.find(a => a.matricNo === matricNo) || null;
+  }
+
   async markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void> {
       const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
       const idx = aspirants.findIndex(a => a.id === aspirantId);
@@ -567,6 +574,22 @@ class MockDB implements IDatabaseService {
   async getCandidates(): Promise<Candidate[]> {
     await delay(300);
     return this.getItems<Candidate>(CANDIDATES_KEY);
+  }
+
+  async getVotingCandidates(): Promise<Partial<Candidate>[]> {
+    await delay(300);
+    const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
+    // For voting, we don't need heavy fields like resultUrl
+    return candidates.map(c => ({
+      id: c.id,
+      name: c.name,
+      matricNo: c.matricNo,
+      department: c.department,
+      position: c.position,
+      manifesto: c.manifesto,
+      photoUrl: c.photoUrl,
+      level: c.level
+    }));
   }
 
   async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
@@ -994,6 +1017,16 @@ class SupabaseDB implements IDatabaseService {
       return (data || []).map(this.mapAspirant);
   }
 
+  async getMyAspirantProfile(matricNo: string): Promise<Aspirant | null> {
+      const { data, error } = await supabase
+        .from('aspirants')
+        .select('id, full_name, matric_no, department, level, position, cgpa, manifesto, passport_url, result_url, address, phone, status, payment_status, payment_receipt_url, created_at')
+        .eq('matric_no', matricNo)
+        .maybeSingle();
+      if (error || !data) return null;
+      return this.mapAspirant(data);
+  }
+
   async markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void> {
       const updateData: any = { payment_status: PaymentStatus.PENDING };
       if (receiptBase64) {
@@ -1095,6 +1128,20 @@ class SupabaseDB implements IDatabaseService {
       level: c.level,
       cgpa: c.cgpa,
       resultUrl: c.result_url
+    }));
+  }
+
+  async getVotingCandidates(): Promise<Partial<Candidate>[]> {
+    const { data } = await supabase.from('candidates').select('id, name, matric_no, department, position, manifesto, photo_url, level');
+    return (data || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      matricNo: c.matric_no,
+      department: c.department,
+      position: c.position,
+      manifesto: c.manifesto,
+      photoUrl: c.photo_url,
+      level: c.level
     }));
   }
 
