@@ -69,10 +69,17 @@ export const AdminDashboard: React.FC = () => {
     setAspirants(asps);
   };
 
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+
   const fetchCandidates = async () => {
-    const cands = await db.getCandidates();
-    setCandidates(cands);
-    return cands;
+    setCandidatesLoading(true);
+    try {
+      const cands = await db.getCandidates();
+      setCandidates(cands);
+      return cands;
+    } finally {
+      setCandidatesLoading(false);
+    }
   };
 
   const fetchPositions = async () => {
@@ -86,10 +93,15 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const fetchResults = async () => {
-    const [res, cands] = await Promise.all([db.getResults(), fetchCandidates()]);
+    let currentCandidates = candidates;
+    if (currentCandidates.length === 0) {
+      currentCandidates = await (db.getVotingCandidates ? db.getVotingCandidates() : db.getCandidates());
+      setCandidates(currentCandidates);
+    }
+    const res = await db.getResults();
     
     // Merge votes with candidate names for chart
-    const chartData = cands.map(c => {
+    const chartData = currentCandidates.map(c => {
         const votes = res.find(r => r.candidateId === c.id);
         return {
             name: c.name,
@@ -1186,32 +1198,39 @@ export const AdminDashboard: React.FC = () => {
            <div className="flex justify-end">
              <Button onClick={openAddCandidate}>+ Add New Candidate</Button>
            </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {candidates.map(candidate => (
-                 <div key={candidate.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                    <div className="h-48 overflow-hidden bg-gray-100 relative">
-                        {candidate.photoUrl ? (
-                            <img src={candidate.photoUrl} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">No Photo</div>
-                        )}
-                        <div className="absolute top-2 right-2 flex space-x-1">
-                             <button onClick={() => openEditCandidate(candidate)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50">✏️</button>
-                             <button onClick={() => handleDeleteCandidate(candidate.id)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50 text-red-500">🗑️</button>
-                        </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col">
-                        <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
-                        <p className="text-sm text-emerald-600 font-medium">{candidate.position}</p>
-                        <p className="text-xs text-gray-500 mt-1">{candidate.department} • {candidate.matricNo}</p>
-                        <div className="mt-3 flex-1">
-                             <p className="text-sm text-gray-600 line-clamp-3 italic">"{candidate.manifesto}"</p>
-                        </div>
-                    </div>
-                 </div>
-              ))}
-           </div>
+
+           {candidatesLoading && candidates.length === 0 ? (
+             <div className="p-12 text-center">
+               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mb-3"></div>
+               <p className="text-gray-600 font-medium">Loading candidates...</p>
+             </div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {candidates.map(candidate => (
+                   <div key={candidate.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                      <div className="h-48 overflow-hidden bg-gray-100 relative">
+                          {candidate.photoUrl ? (
+                              <img src={candidate.photoUrl} className="w-full h-full object-cover" />
+                          ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">No Photo</div>
+                          )}
+                          <div className="absolute top-2 right-2 flex space-x-1">
+                               <button onClick={() => openEditCandidate(candidate)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50">✏️</button>
+                               <button onClick={() => handleDeleteCandidate(candidate.id)} className="bg-white p-1 rounded-full shadow hover:bg-gray-50 text-red-500">🗑️</button>
+                          </div>
+                      </div>
+                      <div className="p-4 flex-1 flex flex-col">
+                          <h3 className="text-lg font-bold text-gray-900">{candidate.name}</h3>
+                          <p className="text-sm text-emerald-600 font-medium">{candidate.position}</p>
+                          <p className="text-xs text-gray-500 mt-1">{candidate.department} • {candidate.matricNo}</p>
+                          <div className="mt-3 flex-1">
+                               <p className="text-sm text-gray-600 line-clamp-3 italic">"{candidate.manifesto}"</p>
+                          </div>
+                      </div>
+                   </div>
+                ))}
+             </div>
+           )}
         </div>
       )}
 

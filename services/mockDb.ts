@@ -732,6 +732,10 @@ class MockDB implements IDatabaseService {
   }
 }
 
+function logPerfMetrics(fnName: string, durationMs: number, data: any) {
+  console.log(`[PERF] ${fnName}: ${durationMs.toFixed(2)} ms`);
+}
+
 // ----------------------------------------------------------------------
 // 2. SUPABASE DB (Real Production Database)
 // ----------------------------------------------------------------------
@@ -768,18 +772,23 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async getElectionSettings(): Promise<ElectionSettings> {
+    const t0 = performance.now();
     try {
       const { data, error } = await supabase.from('settings').select('*').single();
       if (error) {
+        logPerfMetrics('getElectionSettings', performance.now() - t0, defaultSettings);
         return defaultSettings;
       }
-      return {
+      const mapped = {
         startDate: data.start_date,
         endDate: data.end_date,
         isVotingEnabled: data.is_voting_enabled
       };
+      logPerfMetrics('getElectionSettings', performance.now() - t0, mapped);
+      return mapped;
     } catch (e) {
       console.error("Connection Error:", e);
+      logPerfMetrics('getElectionSettings', performance.now() - t0, defaultSettings);
       return defaultSettings;
     }
   }
@@ -818,13 +827,19 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async getPositions(): Promise<Position[]> {
+    const t0 = performance.now();
     const { data, error } = await supabase.from('positions').select('name, price, eligible_level');
-    if (error) return [];
-    return data.map((d: any) => ({
+    if (error) {
+      logPerfMetrics('getPositions', performance.now() - t0, []);
+      return [];
+    }
+    const mapped = data.map((d: any) => ({
         name: d.name,
         price: Number(d.price) || 0,
         eligibleLevel: d.eligible_level || 'All'
     }));
+    logPerfMetrics('getPositions', performance.now() - t0, mapped);
+    return mapped;
   }
 
   async addPosition(adminId: string, name: string, price: number, level: string): Promise<Position> {
@@ -1012,19 +1027,31 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async getAspirants(): Promise<Aspirant[]> {
+      const t0 = performance.now();
       const { data, error } = await supabase.from('aspirants').select('*');
-      if (error) return [];
-      return (data || []).map(this.mapAspirant);
+      if (error) {
+        logPerfMetrics('getAspirants', performance.now() - t0, []);
+        return [];
+      }
+      const mapped = (data || []).map(this.mapAspirant);
+      logPerfMetrics('getAspirants', performance.now() - t0, mapped);
+      return mapped;
   }
 
   async getMyAspirantProfile(matricNo: string): Promise<Aspirant | null> {
+      const t0 = performance.now();
       const { data, error } = await supabase
         .from('aspirants')
         .select('id, full_name, matric_no, department, level, position, cgpa, manifesto, passport_url, result_url, address, phone, status, payment_status, payment_receipt_url, created_at')
         .eq('matric_no', matricNo)
         .maybeSingle();
-      if (error || !data) return null;
-      return this.mapAspirant(data);
+      if (error || !data) {
+        logPerfMetrics('getMyAspirantProfile', performance.now() - t0, null);
+        return null;
+      }
+      const mapped = this.mapAspirant(data);
+      logPerfMetrics('getMyAspirantProfile', performance.now() - t0, mapped);
+      return mapped;
   }
 
   async markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void> {
@@ -1056,7 +1083,7 @@ class SupabaseDB implements IDatabaseService {
           }
 
           // Check for duplicate candidate before proceeding
-          const { data: existingCand } = await supabase.from('candidates').select('*').eq('matric_no', asp.matric_no).single();
+          const { data: existingCand } = await supabase.from('candidates').select('id').eq('matric_no', asp.matric_no).maybeSingle();
           if (existingCand) {
                await supabase.from('aspirants').update({ status: ApprovalStatus.APPROVED }).eq('id', aspirantId);
                return; // Already promoted
@@ -1114,30 +1141,42 @@ class SupabaseDB implements IDatabaseService {
       };
   }
 
-  // Voting Methods (Same as before but mapped correctly)
+  // Voting Methods
   async getCandidates(): Promise<Candidate[]> {
-    const { data } = await supabase.from('candidates').select('*');
-    return (data || []).map((c: any) => ({
+    const t0 = performance.now();
+    const { data, error } = await supabase
+      .from('candidates')
+      .select('id, name, matric_no, department, position, manifesto, photo_url, level, cgpa');
+    if (error) {
+      logPerfMetrics('getCandidates', performance.now() - t0, []);
+      return [];
+    }
+    const mapped = (data || []).map((c: any) => ({
       id: c.id,
       name: c.name,
       matricNo: c.matric_no,
       department: c.department,
       position: c.position,
-      manifesto: c.manifesto,
-      photoUrl: c.photo_url,
+      manifesto: c.manifesto || '',
+      photoUrl: c.photo_url || '',
       level: c.level,
-      cgpa: c.cgpa,
-      resultUrl: c.result_url
+      cgpa: c.cgpa
     }));
+    logPerfMetrics('getCandidates', performance.now() - t0, mapped);
+    return mapped;
   }
 
   async getVotingCandidates(): Promise<Candidate[]> {
-    const { data, error } = await supabase.from('candidates').select('id, name, matric_no, department, position, manifesto, photo_url, level');
+    const t0 = performance.now();
+    const { data, error } = await supabase
+      .from('candidates')
+      .select('id, name, matric_no, department, position, manifesto, photo_url, level');
     if (error) {
       console.error("Supabase getVotingCandidates error:", error);
+      logPerfMetrics('getVotingCandidates', performance.now() - t0, []);
       return [];
     }
-    return (data || []).map((c: any) => ({
+    const mapped = (data || []).map((c: any) => ({
       id: c.id,
       name: c.name,
       matricNo: c.matric_no,
@@ -1147,11 +1186,13 @@ class SupabaseDB implements IDatabaseService {
       photoUrl: c.photo_url || '',
       level: c.level
     }));
+    logPerfMetrics('getVotingCandidates', performance.now() - t0, mapped);
+    return mapped;
   }
 
   async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
     // Check duplication
-    const { data: existing } = await supabase.from('candidates').select('*').eq('matric_no', candidate.matricNo).single();
+    const { data: existing } = await supabase.from('candidates').select('id').eq('matric_no', candidate.matricNo).maybeSingle();
     if (existing) {
         throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists.`);
     }
@@ -1195,7 +1236,7 @@ class SupabaseDB implements IDatabaseService {
     if (!settings.isVotingEnabled) throw new Error('Voting is closed');
 
     const { data: existing } = await supabase.from('votes')
-      .select('*').eq('student_id', studentId).eq('position', position).single();
+      .select('id').eq('student_id', studentId).eq('position', position).maybeSingle();
     if (existing) throw new Error('Already voted for this position');
 
     const voteData = {
@@ -1216,23 +1257,37 @@ class SupabaseDB implements IDatabaseService {
   }
 
   async getMyVotes(studentId: string): Promise<Vote[]> {
-    const { data } = await supabase.from('votes').select('*').eq('student_id', studentId);
-    return (data || []).map((v: any) => ({
+    const t0 = performance.now();
+    const { data, error } = await supabase.from('votes').select('*').eq('student_id', studentId);
+    if (error) {
+      logPerfMetrics('getMyVotes', performance.now() - t0, []);
+      return [];
+    }
+    const mapped = (data || []).map((v: any) => ({
       id: v.id,
       studentId: v.student_id,
       candidateId: v.candidate_id,
       position: v.position,
       timestamp: Number(v.timestamp)
     }));
+    logPerfMetrics('getMyVotes', performance.now() - t0, mapped);
+    return mapped;
   }
 
   async getResults(): Promise<{candidateId: string, count: number}[]> {
-    const { data } = await supabase.from('votes').select('candidate_id');
+    const t0 = performance.now();
+    const { data, error } = await supabase.from('votes').select('candidate_id');
+    if (error) {
+      logPerfMetrics('getResults', performance.now() - t0, []);
+      return [];
+    }
     const counts: Record<string, number> = {};
     (data || []).forEach((v: any) => {
       counts[v.candidate_id] = (counts[v.candidate_id] || 0) + 1;
     });
-    return Object.entries(counts).map(([id, count]) => ({ candidateId: id, count }));
+    const mapped = Object.entries(counts).map(([id, count]) => ({ candidateId: id, count }));
+    logPerfMetrics('getResults', performance.now() - t0, mapped);
+    return mapped;
   }
 
   async getAuditLogs(adminId: string): Promise<AuditLog[]> {

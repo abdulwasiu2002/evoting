@@ -93,6 +93,8 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [myVotes, setMyVotes] = useState<Vote[]>([]);
   const [results, setResults] = useState<{candidateId: string, count: number}[]>([]);
   const [settings, setSettings] = useState<ElectionSettings | null>(null);
+  const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -113,52 +115,50 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
     
     let isMounted = true;
 
-    const fetchData = async () => {
-      try {
-        // Fetch critical voting data first
-        const [p, s, v, c] = await Promise.all([
-          db.getPositions().catch(e => { console.error("Positions error:", e); return []; }),
-          db.getElectionSettings().catch(e => { console.error("Settings error:", e); return null; }),
-          db.getMyVotes(user.id).catch(e => { console.error("MyVotes error:", e); return []; }),
-          db.getVotingCandidates ? db.getVotingCandidates().catch(e => { console.error("Candidates error:", e); return []; }) : db.getCandidates().catch(e => { console.error("Candidates error:", e); return []; })
-        ]);
-        
-        if (isMounted) {
-          setPositions(p);
-          setSettings(s);
-          setMyVotes(v);
-          setCandidates(c as Candidate[]);
-        }
-      } catch (error) {
-        console.error("Critical dashboard data load error:", error);
-      } finally {
-        if (isMounted) {
-          setLoading(false); // Make sure dashboard loads even if some requests fail
-        }
-      }
+    // 1. Fetch candidates independently and render ballot immediately as soon as ready
+    const candidateFetch = db.getVotingCandidates ? db.getVotingCandidates() : db.getCandidates();
+    candidateFetch
+      .then((cands) => {
+        if (!isMounted) return;
+        setCandidates(cands as Candidate[]);
+        setCandidatesLoading(false);
+        setLoading(false); // Ballot ready immediately
 
-      // Fetch optional/secondary data without blocking the UI
-      try {
-        if (db.getMyAspirantProfile) {
-          const myAsp = await db.getMyAspirantProfile(user.matricNo);
-          if (isMounted) setMyAspirantProfile(myAsp);
-        } else {
-          const asps = await db.getAspirants();
-          if (isMounted) setMyAspirantProfile(asps.find(a => a.matricNo === user.matricNo) || null);
+        // Only fetch candidate results if the user is actually a candidate
+        const isCand = (cands as Candidate[]).some(c => c.matricNo === user.matricNo);
+        if (isCand) {
+          db.getResults()
+            .then((r) => { if (isMounted) setResults(r); })
+            .catch((e) => console.error("Error loading candidate results:", e));
         }
-      } catch (e) {
-        console.error("Error loading aspirant profile:", e);
-      }
-      
-      try {
-        const r = await db.getResults();
-        if (isMounted) setResults(r);
-      } catch (e) {
-        console.error("Error loading results:", e);
-      }
-    };
-    
-    fetchData();
+      })
+      .catch((err) => {
+        console.error("Candidates load error:", err);
+        if (isMounted) {
+          setCandidateError("Failed to load candidate ballot. Please refresh or try again.");
+          setCandidatesLoading(false);
+          setLoading(false);
+        }
+      });
+
+    // 2. Parallel independent background fetches for positions, settings, votes, and aspirant profile
+    db.getPositions()
+      .then((p) => { if (isMounted) setPositions(p); })
+      .catch((e) => console.error("Positions background load error:", e));
+
+    db.getElectionSettings()
+      .then((s) => { if (isMounted) setSettings(s); })
+      .catch((e) => console.error("Election settings background load error:", e));
+
+    db.getMyVotes(user.id)
+      .then((v) => { if (isMounted) setMyVotes(v); })
+      .catch((e) => console.error("My votes background load error:", e));
+
+    if (db.getMyAspirantProfile) {
+      db.getMyAspirantProfile(user.matricNo)
+        .then((asp) => { if (isMounted) setMyAspirantProfile(asp); })
+        .catch((e) => console.error("Aspirant profile background load error:", e));
+    }
 
     return () => {
       isMounted = false;
@@ -426,9 +426,17 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       doc.save("NACOS_Nomination_Form.pdf");
   };
 
-  const groupedCandidates = positions.map(position => ({
-    position: position.name,
-    candidates: candidates.filter(c => c.position === position.name)
+  // Derive positions dynamically so candidate ballot renders immediately even if positions table is still loading
+  const allPositionNames = Array.from(
+    new Set([
+      ...positions.map(p => p.name),
+      ...candidates.map(c => c.position).filter(Boolean)
+    ])
+  );
+
+  const groupedCandidates = allPositionNames.map(positionName => ({
+    position: positionName,
+    candidates: candidates.filter(c => c.position === positionName)
   }));
 
   const pendingCount = getPendingVotes().length;
@@ -438,10 +446,24 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const myCandidateVotes = myCandidateProfile ? (results.find(r => r.candidateId === myCandidateProfile.id)?.count || 0) : 0;
   const aspirantPositionPrice = myAspirantProfile ? positions.find(p => p.name === myAspirantProfile.position)?.price || 0 : 0;
 
-  if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
+  if (candidatesLoading && candidates.length === 0) {
+    return (
+      <div className="p-12 text-center">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mb-3"></div>
+        <p className="text-gray-600 font-medium">Loading candidate ballot...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-32 relative">
+      {candidateError && candidates.length === 0 && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-center justify-between">
+          <p>{candidateError}</p>
+          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      )}
+
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
         <div>
             <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.fullName}</h1>
