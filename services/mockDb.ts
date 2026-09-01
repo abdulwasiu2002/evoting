@@ -156,7 +156,7 @@ interface IDatabaseService {
 
   // Voting
   getCandidates(): Promise<Candidate[]>;
-  getVotingCandidates(): Promise<Partial<Candidate>[]>;
+  getVotingCandidates(): Promise<Candidate[]>;
   addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate>;
   updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate>;
   removeCandidate(adminId: string, candidateId: string): Promise<void>;
@@ -576,7 +576,7 @@ class MockDB implements IDatabaseService {
     return this.getItems<Candidate>(CANDIDATES_KEY);
   }
 
-  async getVotingCandidates(): Promise<Partial<Candidate>[]> {
+  async getVotingCandidates(): Promise<Candidate[]> {
     await delay(300);
     const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
     // For voting, we don't need heavy fields like resultUrl
@@ -586,8 +586,8 @@ class MockDB implements IDatabaseService {
       matricNo: c.matricNo,
       department: c.department,
       position: c.position,
-      manifesto: c.manifesto,
-      photoUrl: c.photoUrl,
+      manifesto: c.manifesto || '',
+      photoUrl: c.photoUrl || '',
       level: c.level
     }));
   }
@@ -1131,16 +1131,20 @@ class SupabaseDB implements IDatabaseService {
     }));
   }
 
-  async getVotingCandidates(): Promise<Partial<Candidate>[]> {
-    const { data } = await supabase.from('candidates').select('id, name, matric_no, department, position, manifesto, photo_url, level');
+  async getVotingCandidates(): Promise<Candidate[]> {
+    const { data, error } = await supabase.from('candidates').select('id, name, matric_no, department, position, manifesto, photo_url, level');
+    if (error) {
+      console.error("Supabase getVotingCandidates error:", error);
+      return [];
+    }
     return (data || []).map((c: any) => ({
       id: c.id,
       name: c.name,
       matricNo: c.matric_no,
       department: c.department,
       position: c.position,
-      manifesto: c.manifesto,
-      photoUrl: c.photo_url,
+      manifesto: c.manifesto || '',
+      photoUrl: c.photo_url || '',
       level: c.level
     }));
   }

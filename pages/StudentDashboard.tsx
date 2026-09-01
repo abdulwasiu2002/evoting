@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { User, Candidate, Position, Vote, ElectionSettings, Aspirant, PaymentStatus } from '../types';
 import { db } from '../services/mockDb';
 import { analyzeManifesto } from '../services/geminiService';
@@ -104,12 +104,15 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastVoteReceipts, setLastVoteReceipts] = useState<string[]>([]);
   const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
-  const fetchedRef = useRef(false);
+  const lastFetchedUserKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
+    const userKey = `${user.id}_${user.matricNo}`;
+    if (lastFetchedUserKeyRef.current === userKey) return;
+    lastFetchedUserKeyRef.current = userKey;
     
+    let isMounted = true;
+
     const fetchData = async () => {
       try {
         // Fetch critical voting data first
@@ -120,39 +123,46 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
           db.getVotingCandidates ? db.getVotingCandidates().catch(e => { console.error("Candidates error:", e); return []; }) : db.getCandidates().catch(e => { console.error("Candidates error:", e); return []; })
         ]);
         
-        setPositions(p);
-        setSettings(s);
-        setMyVotes(v);
-        setCandidates(c as Candidate[]);
+        if (isMounted) {
+          setPositions(p);
+          setSettings(s);
+          setMyVotes(v);
+          setCandidates(c as Candidate[]);
+        }
       } catch (error) {
         console.error("Critical dashboard data load error:", error);
       } finally {
-        setLoading(false); // Make sure dashboard loads even if some requests fail
+        if (isMounted) {
+          setLoading(false); // Make sure dashboard loads even if some requests fail
+        }
       }
 
       // Fetch optional/secondary data without blocking the UI
       try {
         if (db.getMyAspirantProfile) {
           const myAsp = await db.getMyAspirantProfile(user.matricNo);
-          setMyAspirantProfile(myAsp);
+          if (isMounted) setMyAspirantProfile(myAsp);
         } else {
           const asps = await db.getAspirants();
-          setMyAspirantProfile(asps.find(a => a.matricNo === user.matricNo) || null);
+          if (isMounted) setMyAspirantProfile(asps.find(a => a.matricNo === user.matricNo) || null);
         }
       } catch (e) {
         console.error("Error loading aspirant profile:", e);
       }
       
       try {
-        // Only load results if the student is also a candidate, to check their own votes
-        // Or load them asynchronously for everyone if required by the UI
         const r = await db.getResults();
-        setResults(r);
+        if (isMounted) setResults(r);
       } catch (e) {
         console.error("Error loading results:", e);
       }
     };
+    
     fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user.id, user.matricNo]);
 
   const handleAnalyze = async (candidate: Candidate) => {
