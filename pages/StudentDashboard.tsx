@@ -104,8 +104,12 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastVoteReceipts, setLastVoteReceipts] = useState<string[]>([]);
   const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    
     const fetchData = async () => {
       try {
         // Fetch critical voting data first
