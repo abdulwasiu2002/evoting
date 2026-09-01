@@ -117,16 +117,16 @@ export const Landing: React.FC = () => {
           </div>
 
           {/* RIGHT COLUMN: Interactive Illustration (Maintained Animations) */}
-          <div className="relative h-[350px] sm:h-[450px] lg:h-[500px] w-full flex items-center justify-center animate-fade-in delay-200 mt-8 lg:mt-0">
+          <div className="relative h-[350px] sm:h-[450px] lg:h-[500px] w-full max-w-full flex items-center justify-center animate-fade-in delay-200 mt-4 lg:mt-0 overflow-hidden sm:overflow-visible">
              
              {/* Ripple Circles Background */}
-             <div className="absolute border border-slate-100 rounded-full w-[300px] sm:w-[400px] h-[300px] sm:h-[400px] animate-pulse-ring"></div>
-             <div className="absolute border border-slate-100 rounded-full w-[450px] sm:w-[550px] h-[450px] sm:h-[550px] animate-pulse-ring delay-300"></div>
+             <div className="absolute border border-slate-100 rounded-full w-[260px] sm:w-[400px] h-[260px] sm:h-[400px] animate-pulse-ring"></div>
+             <div className="absolute border border-slate-100 rounded-full w-[360px] sm:w-[550px] h-[360px] sm:h-[550px] animate-pulse-ring delay-300"></div>
 
              {/* MAIN CARD (Shield) */}
-             <div className="relative z-20 w-56 sm:w-72 h-80 sm:h-96 bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl flex flex-col items-center justify-center text-white border border-slate-700/50">
+             <div className="relative z-20 w-48 sm:w-72 h-72 sm:h-96 bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl shadow-2xl flex flex-col items-center justify-center text-white border border-slate-700/50">
                 {/* Shield Icon */}
-                <div className="w-20 sm:w-24 h-20 sm:h-24 mb-6 relative">
+                <div className="w-16 sm:w-24 h-16 sm:h-24 mb-4 sm:mb-6 relative">
                    <svg className="w-full h-full text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                    </svg>
@@ -134,56 +134,56 @@ export const Landing: React.FC = () => {
                 </div>
                 
                 {/* Loading Bar */}
-                <div className="w-32 sm:w-40 h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
+                <div className="w-28 sm:w-40 h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
                    <div className="h-full bg-emerald-500 w-2/3 animate-[shimmer_2s_infinite]"></div>
                 </div>
-                <p className="text-xs text-slate-400 font-mono">Verifying FPB Nodes...</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 font-mono">Verifying FPB Nodes...</p>
                 
                 {/* Grid overlay on card */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay pointer-events-none rounded-2xl"></div>
              </div>
 
              {/* FLOATING BADGE 1: Encryption (Top Left) */}
-             <div className="absolute top-4 sm:top-10 left-0 sm:left-0 lg:-left-4 glass-card-sm p-2 sm:p-3 rounded-xl flex items-center gap-3 animate-float-slow z-30 scale-90 sm:scale-100">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+             <div className="absolute top-2 sm:top-10 left-2 sm:left-0 lg:-left-4 glass-card-sm p-1.5 sm:p-3 rounded-xl flex items-center gap-2 sm:gap-3 animate-float-slow z-30 scale-85 sm:scale-100">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 </div>
                 <div>
-                   <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Encryption</p>
-                   <p className="text-xs sm:text-sm font-bold text-slate-800">AES-256</p>
+                   <p className="text-[8px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Encryption</p>
+                   <p className="text-[11px] sm:text-sm font-bold text-slate-800">AES-256</p>
                 </div>
              </div>
 
              {/* FLOATING BADGE 2: Access (Right) */}
-             <div className="absolute top-16 sm:top-24 right-0 lg:-right-8 glass-card-sm p-2 sm:p-3 rounded-xl flex items-center gap-3 animate-float-reverse z-10 scale-90 sm:scale-100">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+             <div className="absolute top-12 sm:top-24 right-2 sm:right-0 lg:-right-8 glass-card-sm p-1.5 sm:p-3 rounded-xl flex items-center gap-2 sm:gap-3 animate-float-reverse z-10 scale-85 sm:scale-100">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
                 </div>
                 <div>
-                   <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Campus</p>
-                   <p className="text-xs sm:text-sm font-bold text-slate-800">FPB Connected</p>
+                   <p className="text-[8px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Campus</p>
+                   <p className="text-[11px] sm:text-sm font-bold text-slate-800">FPB Connected</p>
                 </div>
              </div>
 
              {/* FLOATING BADGE 3: Results (Bottom Left) */}
-             <div className="absolute bottom-12 sm:bottom-20 left-0 sm:left-4 lg:-left-8 glass-card-sm p-2 sm:p-3 rounded-xl flex items-center gap-3 animate-float-medium z-30 scale-90 sm:scale-100">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+             <div className="absolute bottom-8 sm:bottom-20 left-2 sm:left-4 lg:-left-8 glass-card-sm p-1.5 sm:p-3 rounded-xl flex items-center gap-2 sm:gap-3 animate-float-medium z-30 scale-85 sm:scale-100">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 </div>
                 <div>
-                   <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Results</p>
-                   <p className="text-xs sm:text-sm font-bold text-slate-800">Live Feed</p>
+                   <p className="text-[8px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Results</p>
+                   <p className="text-[11px] sm:text-sm font-bold text-slate-800">Live Feed</p>
                 </div>
              </div>
 
              {/* FLOATING BADGE 4: Audit (Bottom Right) */}
-             <div className="absolute bottom-6 sm:bottom-10 right-0 sm:right-4 lg:right-0 glass-card-sm p-2 sm:p-3 rounded-xl flex items-center gap-3 animate-float-fast z-30 scale-90 sm:scale-100">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+             <div className="absolute bottom-4 sm:bottom-10 right-2 sm:right-4 lg:right-0 glass-card-sm p-1.5 sm:p-3 rounded-xl flex items-center gap-2 sm:gap-3 animate-float-fast z-30 scale-85 sm:scale-100">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <div>
-                   <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Audit</p>
-                   <p className="text-xs sm:text-sm font-bold text-slate-800">Verified</p>
+                   <p className="text-[8px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Audit</p>
+                   <p className="text-[11px] sm:text-sm font-bold text-slate-800">Verified</p>
                 </div>
              </div>
           </div>

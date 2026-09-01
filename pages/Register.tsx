@@ -154,57 +154,57 @@ export const Register: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow overflow-hidden flex flex-col md:flex-row my-8">
-      <div className="md:w-1/2 p-8 border-r border-gray-100">
-        <div onClick={() => navigate('/')} className="mb-6 flex items-center text-sm text-gray-500 cursor-pointer hover:text-emerald-600 transition-colors">
+    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow overflow-hidden flex flex-col md:flex-row my-4 sm:my-8 mx-3 sm:mx-auto">
+      <div className="md:w-1/2 p-4 sm:p-6 md:p-8 border-r border-gray-100">
+        <div onClick={() => navigate('/')} className="mb-4 sm:mb-6 flex items-center text-sm text-gray-500 cursor-pointer hover:text-emerald-600 transition-colors">
             <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             Back to Home
         </div>
         
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Student Registration</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Student Registration</h2>
         
         {error === "STORAGE FULL" ? (
-             <div className="bg-red-50 text-red-700 p-4 rounded mb-4 text-sm border border-red-200">
+             <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-4 text-xs sm:text-sm border border-red-200">
                 <p className="font-bold mb-2">Browser Storage Full</p>
                 <p className="mb-3">The demo database has run out of space for images.</p>
                 <button 
                     type="button"
                     onClick={handleClearData}
-                    className="bg-red-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-red-700 transition"
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition"
                 >
                     Clear Data & Reset App
                 </button>
              </div>
         ) : error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm break-words">{error}</div>
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-xs sm:text-sm break-words">{error}</div>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Full Name</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700">Full Name</label>
             <input 
               required
               type="text"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+              className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               value={formData.fullName}
               onChange={(e) => setFormData({...formData, fullName: e.target.value})}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Matriculation Number</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700">Matriculation Number</label>
             <input 
               required
               type="text"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+              className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
               value={formData.matricNo}
               onChange={(e) => setFormData({...formData, matricNo: e.target.value})}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Department</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Department</label>
                 <select 
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                 value={formData.department}
                 onChange={(e) => setFormData({...formData, department: e.target.value})}
                 >
@@ -215,9 +215,9 @@ export const Register: React.FC = () => {
                 </select>
               </div>
               <div>
-                  <label className="block text-sm font-medium text-gray-700">Student Level</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700">Student Level</label>
                   <select 
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                     value={formData.level}
                     onChange={(e) => setFormData({...formData, level: e.target.value})}
                   >
@@ -225,20 +225,20 @@ export const Register: React.FC = () => {
                   </select>
               </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="relative">
-                <label className="block text-sm font-medium text-gray-700">Password</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Password</label>
                 <div className="mt-1 relative rounded-md shadow-sm">
                     <input 
                     required
                     type={showPassword ? "text" : "password"}
-                    className="block w-full border border-gray-300 rounded-md py-2 px-3 pr-10 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="block w-full border border-gray-300 rounded-lg py-2 px-3 pr-10 text-sm focus:ring-emerald-500 focus:border-emerald-500"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                     />
                     <button
                         type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] justify-center"
                         onClick={() => setShowPassword(!showPassword)}
                     >
                         {showPassword ? (
@@ -255,18 +255,18 @@ export const Register: React.FC = () => {
                 </div>
             </div>
             <div className="relative">
-                <label className="block text-sm font-medium text-gray-700">Confirm</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">Confirm</label>
                 <div className="mt-1 relative rounded-md shadow-sm">
                     <input 
                     required
                     type={showConfirmPassword ? "text" : "password"}
-                    className="block w-full border border-gray-300 rounded-md py-2 px-3 pr-10 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="block w-full border border-gray-300 rounded-lg py-2 px-3 pr-10 text-sm focus:ring-emerald-500 focus:border-emerald-500"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                     />
                     <button
                         type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] justify-center"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     >
                         {showConfirmPassword ? (
@@ -285,26 +285,26 @@ export const Register: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Student ID Card (Image)</label>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md relative hover:bg-gray-50 transition">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Student ID Card (Image)</label>
+            <div className="mt-1 flex justify-center px-4 sm:px-6 pt-4 sm:pt-5 pb-5 sm:pb-6 border-2 border-gray-300 border-dashed rounded-lg relative hover:bg-gray-50 transition">
               <div className="space-y-1 text-center">
                 {!preview ? (
                    <>
-                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                    <svg className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                         <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <div className="flex text-sm text-gray-600 justify-center">
+                    <div className="flex text-xs sm:text-sm text-gray-600 justify-center">
                     <label className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-emerald-500">
                         <span>Upload a file</span>
                         <input type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
                     </label>
                     <p className="pl-1">or drag and drop</p>
                     </div>
-                    <p className="text-xs text-gray-500">PNG, JPG up to 5MB (Will be compressed)</p>
+                    <p className="text-[10px] sm:text-xs text-gray-500">PNG, JPG up to 5MB (Will be compressed)</p>
                    </>
                 ) : (
                     <div className="relative">
-                        <img src={preview} alt="ID Preview" className="mx-auto h-32 object-contain" />
+                        <img src={preview} alt="ID Preview" className="mx-auto h-28 sm:h-32 object-contain" />
                         <button 
                             type="button"
                             onClick={() => setPreview(null)}
@@ -326,43 +326,43 @@ export const Register: React.FC = () => {
           </div>
           
           <div className="text-center mt-4">
-            <p className="text-sm text-gray-600">
-                Already registered? <span className="text-emerald-600 cursor-pointer hover:underline" onClick={() => navigate('/login')}>Login here</span>
+            <p className="text-xs sm:text-sm text-gray-600">
+                Already registered? <span className="text-emerald-600 cursor-pointer hover:underline font-medium" onClick={() => navigate('/login')}>Login here</span>
             </p>
           </div>
         </form>
       </div>
       
       {/* Right side info panel */}
-      <div className="md:w-1/2 bg-emerald-50 p-8 flex flex-col justify-center">
-        <h3 className="text-xl font-bold text-emerald-800 mb-4">Registration Process</h3>
-        <ul className="space-y-6">
+      <div className="md:w-1/2 bg-emerald-50 p-4 sm:p-6 md:p-8 flex flex-col justify-center border-t md:border-t-0 md:border-l border-emerald-100">
+        <h3 className="text-lg sm:text-xl font-bold text-emerald-800 mb-4">Registration Process</h3>
+        <ul className="space-y-4 sm:space-y-6">
             <li className="flex">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-4">1</div>
+                <div className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm">1</div>
                 <div>
-                    <h4 className="text-lg font-medium text-emerald-900">Fill your details</h4>
-                    <p className="text-sm text-emerald-700">Provide accurate information matching your school records.</p>
+                    <h4 className="text-base sm:text-lg font-medium text-emerald-900">Fill your details</h4>
+                    <p className="text-xs sm:text-sm text-emerald-700">Provide accurate information matching your school records.</p>
                 </div>
             </li>
             <li className="flex">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-4">2</div>
+                <div className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm">2</div>
                 <div>
-                    <h4 className="text-lg font-medium text-emerald-900">Upload ID Card</h4>
-                    <p className="text-sm text-emerald-700">A clear image of your student ID card is required for verification.</p>
+                    <h4 className="text-base sm:text-lg font-medium text-emerald-900">Upload ID Card</h4>
+                    <p className="text-xs sm:text-sm text-emerald-700">A clear image of your student ID card is required for verification.</p>
                 </div>
             </li>
             <li className="flex">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-4">3</div>
+                <div className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm">3</div>
                 <div>
-                    <h4 className="text-lg font-medium text-emerald-900">Await Approval</h4>
-                    <p className="text-sm text-emerald-700">Admins will verify your identity. You will be notified via email.</p>
+                    <h4 className="text-base sm:text-lg font-medium text-emerald-900">Await Approval</h4>
+                    <p className="text-xs sm:text-sm text-emerald-700">Admins will verify your identity. You will be notified via email.</p>
                 </div>
             </li>
             <li className="flex">
-                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-4">4</div>
+                <div className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center font-bold mr-3 sm:mr-4 text-xs sm:text-sm">4</div>
                 <div>
-                    <h4 className="text-lg font-medium text-emerald-900">Login & Vote</h4>
-                    <p className="text-sm text-emerald-700">Once approved, access the dashboard to cast your vote.</p>
+                    <h4 className="text-base sm:text-lg font-medium text-emerald-900">Login & Vote</h4>
+                    <p className="text-xs sm:text-sm text-emerald-700">Once approved, access the dashboard to cast your vote.</p>
                 </div>
             </li>
         </ul>

@@ -927,12 +927,12 @@ export const AdminDashboard: React.FC = () => {
                   </div>
               </div>
 
-              <div className="flex gap-4 justify-end">
-                  <Button onClick={generatePDFReport} className="bg-slate-800 hover:bg-slate-900" isLoading={isGeneratingReport}>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-end w-full sm:w-auto">
+                  <Button onClick={generatePDFReport} className="bg-slate-800 hover:bg-slate-900 w-full sm:w-auto" isLoading={isGeneratingReport}>
                       <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       Detailed Report (PDF)
                   </Button>
-                  <Button variant="outline" onClick={exportExcelCSV}>
+                  <Button variant="outline" onClick={exportExcelCSV} className="w-full sm:w-auto">
                       Export CSV
                   </Button>
               </div>
@@ -1032,21 +1032,21 @@ export const AdminDashboard: React.FC = () => {
           ) : (
           <ul className="divide-y divide-gray-200">
             {pendingUsers.map((user) => (
-              <li key={user.id} className="p-6">
-                <div className="flex items-center justify-between">
+              <li key={user.id} className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 h-16 w-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 cursor-pointer group relative" onClick={() => setVerifyingUser(user)}>
+                    <div className="flex-shrink-0 h-14 w-14 sm:h-16 sm:w-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 cursor-pointer group relative" onClick={() => setVerifyingUser(user)}>
                         {user.idCardUrl ? <img src={user.idCardUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center text-xs">No ID</div>}
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center text-transparent group-hover:text-white text-xs font-bold">View</div>
                     </div>
-                    <div className="ml-4">
-                      <p className="text-lg font-medium text-emerald-600 truncate">{user.fullName}</p>
-                      <p className="text-sm text-gray-500">Matric: {user.matricNo} • {user.department}</p>
-                      <p className="text-xs text-gray-400">Registered: {new Date(user.createdAt).toLocaleString()}</p>
+                    <div className="ml-3 sm:ml-4 overflow-hidden">
+                      <p className="text-base sm:text-lg font-medium text-emerald-600 truncate">{user.fullName}</p>
+                      <p className="text-xs sm:text-sm text-gray-500 truncate">Matric: {user.matricNo} • {user.department}</p>
+                      <p className="text-[11px] sm:text-xs text-gray-400">Registered: {new Date(user.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="primary" onClick={() => setVerifyingUser(user)} disabled={processingId === user.id} isLoading={processingId === user.id}>Review Application</Button>
+                  <div className="flex w-full sm:w-auto">
+                    <Button size="sm" variant="primary" onClick={() => setVerifyingUser(user)} disabled={processingId === user.id} isLoading={processingId === user.id} className="w-full sm:w-auto">Review Application</Button>
                   </div>
                 </div>
               </li>
@@ -1124,70 +1124,72 @@ export const AdminDashboard: React.FC = () => {
               <h3 className="text-lg font-bold text-slate-800">Live Election Results & Tally</h3>
               <p className="text-sm text-slate-500">Real-time vote distribution across all contested positions.</p>
             </div>
-            <div className="flex gap-3">
-              <Button onClick={generatePDFReport} className="bg-emerald-700 hover:bg-emerald-800 text-white" isLoading={isGeneratingReport}>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+              <Button onClick={generatePDFReport} className="bg-emerald-700 hover:bg-emerald-800 text-white w-full sm:w-auto" isLoading={isGeneratingReport}>
                 <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 Download Winners Report (PDF)
               </Button>
-              <Button variant="outline" onClick={exportExcelCSV}>
+              <Button variant="outline" onClick={exportExcelCSV} className="w-full sm:w-auto">
                 Export CSV
               </Button>
             </div>
           </div>
 
           <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-slate-100">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vote Count</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {results.map((row, idx) => {
-                    const samePos = results.filter(r => r.position === row.position);
-                    const totalForPos = samePos.reduce((acc, curr) => acc + curr.votes, 0);
-                    const percent = totalForPos > 0 ? ((row.votes / totalForPos) * 100).toFixed(1) : '0.0';
-                    const maxVotes = Math.max(...samePos.map(r => r.votes));
-                    const isSingle = samePos.length === 1;
-                    const isWinner = (isSingle && row.votes >= 0) || (row.votes === maxVotes && maxVotes > 0);
-                    
-                    return (
-                      <tr key={idx} className={isWinner ? "bg-emerald-50/40" : ""}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{row.position}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">{row.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono font-bold">{row.votes}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <div className="flex items-center">
-                                  <span className="mr-2 w-12 text-right">{percent}%</span>
-                                  <div className="w-24 bg-gray-200 rounded-full h-2.5">
-                                      <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${percent}%` }}></div>
-                                  </div>
-                              </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {isSingle ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                👑 Winner (Unopposed)
-                              </span>
-                            ) : isWinner ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                👑 Leading / Winner
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                Contestant
-                              </span>
-                            )}
-                          </td>
-                      </tr>
-                    );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vote Count</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {results.map((row, idx) => {
+                      const samePos = results.filter(r => r.position === row.position);
+                      const totalForPos = samePos.reduce((acc, curr) => acc + curr.votes, 0);
+                      const percent = totalForPos > 0 ? ((row.votes / totalForPos) * 100).toFixed(1) : '0.0';
+                      const maxVotes = Math.max(...samePos.map(r => r.votes));
+                      const isSingle = samePos.length === 1;
+                      const isWinner = (isSingle && row.votes >= 0) || (row.votes === maxVotes && maxVotes > 0);
+                      
+                      return (
+                        <tr key={idx} className={isWinner ? "bg-emerald-50/40" : ""}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{row.position}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">{row.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono font-bold">{row.votes}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex items-center">
+                                    <span className="mr-2 w-12 text-right">{percent}%</span>
+                                    <div className="w-24 bg-gray-200 rounded-full h-2.5">
+                                        <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${percent}%` }}></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {isSingle ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  👑 Winner (Unopposed)
+                                </span>
+                              ) : isWinner ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  👑 Leading / Winner
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                  Contestant
+                                </span>
+                              )}
+                            </td>
+                        </tr>
+                      );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1314,35 +1316,37 @@ export const AdminDashboard: React.FC = () => {
       {/* AUDIT TAB */}
       {activeTab === 'audit' && (
          <div className="bg-white shadow overflow-hidden sm:rounded-lg animate-fade-in-up">
-             <table className="min-w-full divide-y divide-gray-200">
-                 <thead className="bg-gray-50">
-                     <tr>
-                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
-                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actor</th>
-                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
-                     </tr>
-                 </thead>
-                 <tbody className="bg-white divide-y divide-gray-200">
-                     {logs.map(log => (
-                         <tr key={log.id}>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(log.timestamp).toLocaleString()}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">{log.actorRole} ({log.actorId.slice(0,5)})</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.actionType}</td>
-                             <td className="px-6 py-4 text-sm text-gray-500">{log.details}</td>
-                         </tr>
-                     ))}
-                 </tbody>
-             </table>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                      <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actor</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                      </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                      {logs.map(log => (
+                          <tr key={log.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(log.timestamp).toLocaleString()}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">{log.actorRole} ({log.actorId.slice(0,5)})</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.actionType}</td>
+                              <td className="px-6 py-4 text-sm text-gray-500">{log.details}</td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+            </div>
          </div>
       )}
 
       {/* SETTINGS TAB */}
       {activeTab === 'settings' && (
-         <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-200 animate-fade-in-up">
+         <div className="max-w-2xl mx-auto bg-white p-4 sm:p-8 rounded-lg shadow-sm border border-gray-200 animate-fade-in-up">
              <h3 className="text-xl font-bold mb-6">Election Configuration</h3>
              <form onSubmit={handleSaveSettings} className="space-y-6">
-                 <div className="grid grid-cols-2 gap-6">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                      <div>
                          <label className="block text-sm font-medium text-gray-700">Start Date</label>
                          <DatePicker
@@ -1380,7 +1384,7 @@ export const AdminDashboard: React.FC = () => {
                      </label>
                  </div>
 
-                 <Button type="submit" isLoading={loading}>Save Settings</Button>
+                 <Button type="submit" isLoading={loading} className="w-full sm:w-auto">Save Settings</Button>
              </form>
          </div>
       )}
@@ -1425,11 +1429,11 @@ export const AdminDashboard: React.FC = () => {
       
       {/* EXECUTIVE MODAL */}
       {isExecutiveModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-3 sm:p-4">
+              <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                   <h3 className="text-lg font-bold mb-4">{executiveForm.id ? 'Edit Executive' : 'Add New Executive'}</h3>
                   <form onSubmit={handleSaveExecutive} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                               <label className="block text-sm font-medium text-gray-700">Full Name</label>
                               <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.fullName || ''} onChange={e => setExecutiveForm({...executiveForm, fullName: e.target.value})} required />
@@ -1444,7 +1448,7 @@ export const AdminDashboard: React.FC = () => {
                           </div>
                           <div>
                               <label className="block text-sm font-medium text-gray-700">Status</label>
-                              <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={executiveForm.status || ExecutiveStatus.OUTGOING} onChange={e => setExecutiveForm({...executiveForm, status: e.target.value as ExecutiveStatus})}>
+                              <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={executiveForm.status || ExecutiveStatus.OUTGOING} onChange={e => setExecutiveForm({...executiveForm, status: e.target.value as ExecutiveStatus})}>
                                   <option value={ExecutiveStatus.ACTIVE}>{ExecutiveStatus.ACTIVE}</option>
                                   <option value={ExecutiveStatus.OUTGOING}>{ExecutiveStatus.OUTGOING}</option>
                                   <option value={ExecutiveStatus.ARCHIVED}>{ExecutiveStatus.ARCHIVED}</option>
@@ -1479,12 +1483,12 @@ export const AdminDashboard: React.FC = () => {
 
                       <div>
                           <label className="block text-sm font-medium text-gray-700">Photo</label>
-                          <input type="file" className="mt-1 block w-full" accept="image/*" onChange={handleExecutivePhotoFileChange} />
+                          <input type="file" className="mt-1 block w-full text-xs sm:text-sm text-gray-500 file:mr-2 sm:file:mr-4 file:py-2 file:px-3 sm:file:px-4 file:rounded file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" accept="image/*" onChange={handleExecutivePhotoFileChange} />
                           {executivePhotoPreview && <img src={executivePhotoPreview} className="mt-2 h-20 w-20 object-cover rounded" />}
                       </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                          <Button type="button" variant="outline" onClick={() => setIsExecutiveModalOpen(false)}>Cancel</Button>
-                          <Button type="submit" isLoading={loading}>Save</Button>
+                      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t border-gray-100">
+                          <Button type="button" variant="outline" onClick={() => setIsExecutiveModalOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                          <Button type="submit" isLoading={loading} className="w-full sm:w-auto">Save</Button>
                       </div>
                   </form>
               </div>
@@ -1493,15 +1497,15 @@ export const AdminDashboard: React.FC = () => {
 
       {/* CANDIDATE MODAL */}
       {isCandidateModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-3 sm:p-4">
+              <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                   <h3 className="text-lg font-bold mb-4">{isEditingCandidate ? 'Edit Candidate' : 'Add New Candidate'}</h3>
                   <form onSubmit={handleSaveCandidate} className="space-y-4">
                       <div>
                           <label className="block text-sm font-medium text-gray-700">Full Name</label>
                           <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.name || ''} onChange={e => setCandidateForm({...candidateForm, name: e.target.value})} required />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                               <label className="block text-sm font-medium text-gray-700">Matric No</label>
                               <input className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={candidateForm.matricNo || ''} onChange={e => setCandidateForm({...candidateForm, matricNo: e.target.value})} required />
@@ -1525,12 +1529,12 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <div>
                           <label className="block text-sm font-medium text-gray-700">Photo</label>
-                          <input type="file" className="mt-1 block w-full" accept="image/*" onChange={handlePhotoFileChange} />
+                          <input type="file" className="mt-1 block w-full text-xs sm:text-sm text-gray-500 file:mr-2 sm:file:mr-4 file:py-2 file:px-3 sm:file:px-4 file:rounded file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" accept="image/*" onChange={handlePhotoFileChange} />
                           {candidatePhotoPreview && <img src={candidatePhotoPreview} className="mt-2 h-20 w-20 object-cover rounded" />}
                       </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                          <Button type="button" variant="outline" onClick={() => setIsCandidateModalOpen(false)}>Cancel</Button>
-                          <Button type="submit" isLoading={loading}>Save</Button>
+                      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t border-gray-100">
+                          <Button type="button" variant="outline" onClick={() => setIsCandidateModalOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                          <Button type="submit" isLoading={loading} className="w-full sm:w-auto">Save</Button>
                       </div>
                   </form>
               </div>
@@ -1540,38 +1544,38 @@ export const AdminDashboard: React.FC = () => {
       {/* VERIFY USER MODAL */}
       {verifyingUser && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="flex items-center justify-center min-h-screen p-3 sm:p-4 text-center">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setVerifyingUser(null)}></div>
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Verify Student Registration</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="inline-block bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all max-w-2xl w-full max-h-[90vh] flex flex-col z-10">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto">
+                        <h3 className="text-lg leading-6 font-bold text-gray-900 mb-4">Verify Student Registration</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Student ID Card</label>
-                                <div className="border rounded-lg overflow-hidden bg-gray-100 h-64 flex items-center justify-center">
+                                <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-2">Student ID Card</label>
+                                <div className="border rounded-lg overflow-hidden bg-gray-100 h-48 sm:h-64 flex items-center justify-center">
                                     {verifyingUser.idCardUrl ? (
                                         <img src={verifyingUser.idCardUrl} alt="ID Card" className="max-h-full max-w-full object-contain" />
                                     ) : (
-                                        <span className="text-gray-400">No Image</span>
+                                        <span className="text-gray-400 text-xs sm:text-sm">No Image</span>
                                     )}
                                 </div>
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-3 sm:space-y-4">
                                 <div>
                                     <label className="block text-xs text-gray-500 uppercase">Full Name</label>
-                                    <p className="text-lg font-bold">{verifyingUser.fullName}</p>
+                                    <p className="text-base sm:text-lg font-bold">{verifyingUser.fullName}</p>
                                 </div>
                                 <div>
                                     <label className="block text-xs text-gray-500 uppercase">Matric No</label>
-                                    <p className="text-lg font-mono bg-gray-50 inline-block px-2 rounded">{verifyingUser.matricNo}</p>
+                                    <p className="text-base sm:text-lg font-mono bg-gray-50 inline-block px-2 rounded">{verifyingUser.matricNo}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                        <Button className="w-full sm:ml-3 sm:w-auto" onClick={() => handleApproval(verifyingUser.id, true)} disabled={processingId === verifyingUser.id} isLoading={processingId === verifyingUser.id}>Approve</Button>
-                        <Button variant="danger" className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto" onClick={() => handleApproval(verifyingUser.id, false)} disabled={processingId === verifyingUser.id}>Reject</Button>
-                        <Button variant="outline" className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto" onClick={() => setVerifyingUser(null)}>Cancel</Button>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100">
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setVerifyingUser(null)}>Cancel</Button>
+                        <Button variant="danger" className="w-full sm:w-auto" onClick={() => handleApproval(verifyingUser.id, false)} disabled={processingId === verifyingUser.id}>Reject</Button>
+                        <Button className="w-full sm:w-auto" onClick={() => handleApproval(verifyingUser.id, true)} disabled={processingId === verifyingUser.id} isLoading={processingId === verifyingUser.id}>Approve</Button>
                     </div>
                 </div>
             </div>
@@ -1581,45 +1585,45 @@ export const AdminDashboard: React.FC = () => {
       {/* REVIEW ASPIRANT MODAL */}
       {reviewingAspirant && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="flex items-center justify-center min-h-screen p-3 sm:p-4 text-center">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setReviewingAspirant(null)}></div>
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <div className="flex justify-between items-center mb-6 border-b pb-4">
-                            <h3 className="text-xl font-bold text-gray-900">Review Aspirant Application</h3>
-                             <span className={`px-2 py-1 rounded text-xs font-bold ${reviewingAspirant.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>Payment: {reviewingAspirant.paymentStatus.toUpperCase()}</span>
+                <div className="inline-block bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all max-w-3xl w-full max-h-[90vh] flex flex-col z-10">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4 sm:mb-6 border-b pb-4">
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Review Aspirant Application</h3>
+                             <span className={`px-2 py-1 rounded text-xs font-bold self-start sm:self-auto ${reviewingAspirant.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>Payment: {reviewingAspirant.paymentStatus.toUpperCase()}</span>
                         </div>
-                        <div className="grid md:grid-cols-2 gap-8">
-                            <div className="space-y-6">
-                                <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                                    <p className="font-bold">{reviewingAspirant.fullName}</p>
-                                    <p>{reviewingAspirant.position}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                            <div className="space-y-4">
+                                <div className="bg-gray-50 p-3 sm:p-4 rounded border border-gray-200">
+                                    <p className="font-bold text-gray-900">{reviewingAspirant.fullName}</p>
+                                    <p className="text-sm text-emerald-600 font-medium">{reviewingAspirant.position}</p>
                                 </div>
                                 {reviewingAspirant.paymentReceiptUrl && (
                                     <div>
-                                        <h4 className="text-sm font-bold text-gray-700 mb-2">Payment Receipt</h4>
-                                        <div className="border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                                            <img src={reviewingAspirant.paymentReceiptUrl} alt="Payment Receipt" className="max-w-full max-h-64 object-contain" />
+                                        <h4 className="text-xs sm:text-sm font-bold text-gray-700 mb-2">Payment Receipt</h4>
+                                        <div className="border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center max-h-48 sm:max-h-56">
+                                            <img src={reviewingAspirant.paymentReceiptUrl} alt="Payment Receipt" className="max-w-full max-h-48 sm:max-h-56 object-contain" />
                                         </div>
                                     </div>
                                 )}
                             </div>
                             <div className="space-y-4">
-                                <h4 className="text-sm font-bold text-gray-700 mb-2">Passport Photo</h4>
-                                <div className="h-48 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
+                                <h4 className="text-xs sm:text-sm font-bold text-gray-700 mb-2">Passport Photo</h4>
+                                <div className="h-40 sm:h-48 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
                                     <img src={reviewingAspirant.passportUrl} className="h-full w-full object-cover" />
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100">
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setReviewingAspirant(null)}>Close</Button>
+                        <Button variant="danger" className="w-full sm:w-auto" onClick={() => handleAspirantApproval(reviewingAspirant.id, false)} disabled={processingId === reviewingAspirant.id}>Reject Application</Button>
                         {reviewingAspirant.paymentStatus !== PaymentStatus.PAID ? (
                              <Button className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700" onClick={() => handleVerifyPayment(reviewingAspirant.id)} disabled={processingId === reviewingAspirant.id} isLoading={processingId === reviewingAspirant.id}>Verify Payment First</Button>
                         ) : (
                              <Button className="w-full sm:w-auto" onClick={() => handleAspirantApproval(reviewingAspirant.id, true)} disabled={processingId === reviewingAspirant.id} isLoading={processingId === reviewingAspirant.id}>Approve & Promote</Button>
                         )}
-                        <Button variant="danger" className="w-full sm:w-auto" onClick={() => handleAspirantApproval(reviewingAspirant.id, false)} disabled={processingId === reviewingAspirant.id}>Reject Application</Button>
-                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setReviewingAspirant(null)}>Close</Button>
                     </div>
                 </div>
             </div>

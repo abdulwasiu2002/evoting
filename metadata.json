@@ -1,5 +1,8 @@
 {
   "name": "NACOS E-Voting",
   "description": "The official e-voting platform for the Nigeria Association of Computing Students (NACOS). Secure, transparent, and auditable elections.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -464,13 +464,13 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.fullName}</h1>
-            <p className="text-gray-500">Matric: {user.matricNo} • {user.department}</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Welcome, {user.fullName}</h1>
+            <p className="text-xs sm:text-sm text-gray-500">Matric: {user.matricNo} • {user.department}</p>
         </div>
-        <div className="text-right">
-             <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+        <div className="sm:text-right">
+             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-emerald-100 text-emerald-800">
                 Verified Voter
             </span>
         </div>
@@ -479,9 +479,9 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       {/* ASPIRANT PORTAL SECTION */}
       {myAspirantProfile && (
           <div className="bg-white rounded-lg shadow-lg border border-purple-200 overflow-hidden">
-              <div className="bg-purple-50 px-6 py-4 border-b border-purple-200 flex justify-between items-center">
-                  <h2 className="text-lg font-bold text-purple-900">Aspirant Portal</h2>
-                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+              <div className="bg-purple-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-purple-200 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-bold text-purple-900">Aspirant Portal</h2>
+                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase w-fit ${
                       myAspirantProfile.status === 'approved' ? 'bg-green-100 text-green-800' : 
                       myAspirantProfile.status === 'rejected' ? 'bg-red-100 text-red-800' : 
                       'bg-yellow-100 text-yellow-800'
@@ -489,35 +489,35 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                       Status: {myAspirantProfile.status}
                   </span>
               </div>
-              <div className="p-6">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              <div className="p-4 sm:p-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                       <div>
                           <p className="text-sm text-gray-500">Position Applied For</p>
                           <p className="text-xl font-bold text-gray-900">{myAspirantProfile.position}</p>
                           <p className="text-sm text-gray-500 mt-2">Nomination Form Price: <span className="font-bold text-gray-900">₦{aspirantPositionPrice.toLocaleString()}</span></p>
                       </div>
                       
-                      <div className="flex flex-col items-center">
+                      <div className="flex flex-col items-start md:items-center w-full md:w-auto">
                            {myAspirantProfile.paymentStatus === PaymentStatus.UNPAID && (
-                               <Button onClick={() => setShowPaymentModal(true)}>
+                               <Button onClick={() => setShowPaymentModal(true)} className="w-full md:w-auto">
                                    Purchase Nomination Form
                                </Button>
                            )}
                            
                            {myAspirantProfile.paymentStatus === PaymentStatus.PENDING && (
-                               <div className="text-center">
+                               <div className="text-left md:text-center">
                                    <p className="text-yellow-600 font-bold mb-2">Payment Verification Pending</p>
                                    <p className="text-xs text-gray-500">Please wait for admin approval.</p>
                                </div>
                            )}
 
                            {myAspirantProfile.paymentStatus === PaymentStatus.PAID && (
-                               <div className="text-center space-y-2">
-                                   <div className="flex items-center text-green-600 font-bold justify-center">
+                               <div className="text-left md:text-center space-y-2 w-full md:w-auto">
+                                   <div className="flex items-center text-green-600 font-bold justify-start md:justify-center">
                                        <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                        Payment Verified
                                    </div>
-                                   <Button variant="outline" size="sm" onClick={downloadReceipt}>
+                                   <Button variant="outline" size="sm" onClick={downloadReceipt} className="w-full md:w-auto">
                                        Download Receipt & Form
                                    </Button>
                                </div>
@@ -675,30 +675,30 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+             <div className="flex items-center justify-center min-h-screen p-3 sm:p-4 text-center">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowPaymentModal(false)}></div>
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="inline-block bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all max-w-lg w-full max-h-[90vh] flex flex-col z-10">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Purchase Nomination Form</h3>
                         <p className="text-sm text-gray-600 mb-4">Please make a transfer of <span className="font-bold text-lg text-emerald-600">₦{aspirantPositionPrice.toLocaleString()}</span> to the account below:</p>
                         
-                        <div className="bg-gray-100 p-4 rounded mb-6 text-center space-y-1 border border-gray-200">
-                            <p className="text-sm text-gray-500 uppercase">Bank Name</p>
-                            <p className="font-bold text-lg">Moniepoint</p>
+                        <div className="bg-gray-100 p-4 rounded-lg mb-6 text-center space-y-1 border border-gray-200">
+                            <p className="text-xs sm:text-sm text-gray-500 uppercase">Bank Name</p>
+                            <p className="font-bold text-base sm:text-lg">Moniepoint</p>
                             
-                            <p className="text-sm text-gray-500 uppercase mt-2">Account Number</p>
-                            <p className="font-mono text-2xl font-bold tracking-widest text-emerald-700 bg-white inline-block px-3 py-1 rounded border border-gray-300">5449087183</p>
+                            <p className="text-xs sm:text-sm text-gray-500 uppercase mt-2">Account Number</p>
+                            <p className="font-mono text-xl sm:text-2xl font-bold tracking-widest text-emerald-700 bg-white inline-block px-3 py-1 rounded border border-gray-300">5449087183</p>
                             
-                            <p className="text-sm text-gray-500 uppercase mt-2">Account Name</p>
-                            <p className="font-bold text-lg">Abdulwasiu Abubakar</p>
+                            <p className="text-xs sm:text-sm text-gray-500 uppercase mt-2">Account Name</p>
+                            <p className="font-bold text-base sm:text-lg">Abdulwasiu Abubakar</p>
                         </div>
                         
-                        <div className="bg-yellow-50 p-3 rounded text-sm text-yellow-800 mb-4">
+                        <div className="bg-yellow-50 p-3 rounded-lg text-xs sm:text-sm text-yellow-800 mb-4">
                             <strong>Note:</strong> After transfer, please upload your payment receipt below and click "I have made payment". Admin approval is required before your form is valid.
                         </div>
 
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Receipt / Proof</label>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Receipt / Proof</label>
                             <input 
                                 type="file" 
                                 accept="image/*"
@@ -713,16 +713,16 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                                         reader.readAsDataURL(file);
                                     }
                                 }}
-                                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                                className="w-full text-xs sm:text-sm text-gray-500 file:mr-2 sm:file:mr-4 file:py-2 file:px-3 sm:file:px-4 file:rounded file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                             />
                             {receiptBase64 && (
-                                <div className="mt-2 text-sm text-emerald-600">Receipt image attached securely.</div>
+                                <div className="mt-2 text-xs sm:text-sm text-emerald-600">Receipt image attached securely.</div>
                             )}
                         </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                        <Button onClick={handleConfirmPayment} disabled={!receiptBase64} className="w-full sm:ml-3 sm:w-auto" isLoading={submitting}>I have made the payment</Button>
-                        <Button variant="outline" onClick={() => setShowPaymentModal(false)} className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto">Cancel</Button>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100">
+                        <Button variant="outline" onClick={() => setShowPaymentModal(false)} className="w-full sm:w-auto">Cancel</Button>
+                        <Button onClick={handleConfirmPayment} disabled={!receiptBase64} className="w-full sm:w-auto" isLoading={submitting}>I have made the payment</Button>
                     </div>
                 </div>
              </div>
@@ -732,11 +732,10 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       {/* Confirmation & Success Modals */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="flex items-center justify-center min-h-screen p-3 sm:p-4 text-center">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowConfirmModal(false)}></div>
-                <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="inline-block bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all max-w-lg w-full max-h-[90vh] flex flex-col z-10">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto">
                         <div className="sm:flex sm:items-start">
                             <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-emerald-100 sm:mx-0 sm:h-10 sm:w-10">
                                 <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -747,24 +746,24 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                                 <h3 className="text-lg leading-6 font-medium text-gray-900">Confirm Your Vote</h3>
                                 <div className="mt-2">
                                     <p className="text-sm text-gray-500 mb-4">You are about to cast votes for the following candidates. This action cannot be undone.</p>
-                                    <ul className="bg-gray-50 rounded p-3 text-sm space-y-2">
+                                    <ul className="bg-gray-50 rounded-lg p-3 text-sm space-y-2 max-h-48 overflow-y-auto">
                                         {getPendingVotes().map(([pos, cId]) => {
-                                            const cand = candidates.find(c => c.id === cId);
-                                            return (
-                                                <li key={pos} className="flex justify-between">
-                                                    <span className="font-semibold text-gray-700">{pos}:</span>
-                                                    <span className="text-gray-900">{cand?.name}</span>
-                                                </li>
-                                            );
-                                        })}
+                                             const cand = candidates.find(c => c.id === cId);
+                                             return (
+                                                 <li key={pos} className="flex justify-between items-center text-xs sm:text-sm">
+                                                     <span className="font-semibold text-gray-700">{pos}:</span>
+                                                     <span className="text-gray-900 font-medium">{cand?.name}</span>
+                                                 </li>
+                                             );
+                                         })}
                                     </ul>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                        <Button onClick={handleConfirmVote} className="w-full sm:ml-3 sm:w-auto">Confirm Vote</Button>
-                        <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto">Cancel</Button>
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100">
+                        <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="w-full sm:w-auto">Cancel</Button>
+                        <Button onClick={handleConfirmVote} className="w-full sm:w-auto">Confirm Vote</Button>
                     </div>
                 </div>
             </div>
@@ -774,27 +773,26 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="flex items-center justify-center min-h-screen p-3 sm:p-4 text-center">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-                <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                         <div className="mx-auto flex-shrink-0 flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 mb-4">
-                            <svg className="h-10 w-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="inline-block bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all max-w-lg w-full max-h-[90vh] flex flex-col z-10">
+                    <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto">
+                         <div className="mx-auto flex-shrink-0 flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-emerald-100 mb-4">
+                            <svg className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        <h3 className="text-center text-xl leading-6 font-bold text-gray-900">Vote Cast Successfully!</h3>
-                        <p className="text-center text-sm text-gray-500 mt-2">Your vote has been securely recorded on the blockchain ledger.</p>
+                        <h3 className="text-center text-lg sm:text-xl leading-6 font-bold text-gray-900">Vote Cast Successfully!</h3>
+                        <p className="text-center text-xs sm:text-sm text-gray-500 mt-2">Your vote has been securely recorded on the blockchain ledger.</p>
                         
-                        <div className="mt-4 bg-gray-50 p-3 rounded text-center">
+                        <div className="mt-4 bg-gray-50 p-3 rounded-lg text-center">
                             <p className="text-xs text-gray-500 uppercase font-semibold">Transaction Receipts</p>
-                            <div className="mt-1 text-xs text-gray-600 font-mono space-y-1">
-                                {lastVoteReceipts.map(id => <div key={id}>{id}</div>)}
+                            <div className="mt-1 text-xs text-gray-600 font-mono space-y-1 max-h-32 overflow-y-auto">
+                                {lastVoteReceipts.map(id => <div key={id} className="break-all">{id}</div>)}
                             </div>
                         </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-center">
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-center border-t border-gray-100">
                         <Button onClick={() => setShowSuccessModal(false)} className="w-full sm:w-auto">Close & View Dashboard</Button>
                     </div>
                 </div>

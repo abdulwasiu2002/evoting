@@ -153,73 +153,73 @@ export const RegisterAspirant: React.FC = () => {
   const selectedPosPrice = positions.find(p => p.name === formData.position)?.price || 0;
 
   return (
-    <div className="max-w-5xl mx-auto py-10 px-4">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col md:flex-row border border-purple-100">
-            <div className="md:w-3/5 p-8 border-r border-gray-100">
+    <div className="max-w-5xl mx-auto py-6 sm:py-10 px-3 sm:px-4">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:flex-row border border-purple-100">
+            <div className="md:w-3/5 p-4 sm:p-6 md:p-8 border-r border-gray-100">
                 <div onClick={() => navigate('/')} className="mb-4 flex items-center text-sm text-gray-500 cursor-pointer hover:text-emerald-600 transition-colors">
                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                      Back to Home
                 </div>
 
                 <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Aspirant Registration</h2>
-                    <p className="text-sm text-gray-500">Create an account and apply for an executive position.</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Aspirant Registration</h2>
+                    <p className="text-xs sm:text-sm text-gray-500">Create an account and apply for an executive position.</p>
                 </div>
 
-                {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm break-words">{error}</div>}
+                {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-xs sm:text-sm break-words">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     
                     {/* Section 1: Account Details */}
-                    <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                        <h3 className="text-sm font-bold text-gray-700 uppercase mb-3 border-b pb-2">1. Personal & Login Details</h3>
+                    <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
+                        <h3 className="text-xs sm:text-sm font-bold text-gray-700 uppercase mb-3 border-b pb-2">1. Personal & Login Details</h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                                <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700">Full Name</label>
+                                <input required type="text" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Matric Number</label>
-                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.matricNo} onChange={e => setFormData({...formData, matricNo: e.target.value})} />
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Matric Number</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.matricNo} onChange={e => setFormData({...formData, matricNo: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Level</label>
-                                    <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.level} onChange={e => setFormData({...formData, level: e.target.value})}>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Level</label>
+                                    <select className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm" value={formData.level} onChange={e => setFormData({...formData, level: e.target.value})}>
                                         {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Department</label>
-                                <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})}>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700">Department</label>
+                                <select className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})}>
                                     {departments.map(d => <option key={d} value={d}>{d}</option>)}
                                 </select>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="e.g. 08012345678" />
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Phone Number</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="e.g. 08012345678" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Address</label>
-                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Your residential address" />
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Address</label>
+                                    <input required type="text" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Your residential address" />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div className="relative">
-                                    <label className="block text-sm font-medium text-gray-700">Password</label>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Password</label>
                                     <div className="mt-1 relative rounded-md shadow-sm">
                                         <input 
                                             required 
                                             type={showPassword ? "text" : "password"} 
-                                            className="block w-full border border-gray-300 rounded-md py-2 px-3 pr-10 focus:ring-emerald-500 focus:border-emerald-500" 
+                                            className="block w-full border border-gray-300 rounded-lg py-2 px-3 pr-10 text-sm focus:ring-emerald-500 focus:border-emerald-500" 
                                             value={formData.password} 
                                             onChange={e => setFormData({...formData, password: e.target.value})} 
                                         />
                                         <button
                                             type="button"
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] justify-center"
                                             onClick={() => setShowPassword(!showPassword)}
                                         >
                                             {showPassword ? (
@@ -236,18 +236,18 @@ export const RegisterAspirant: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="relative">
-                                    <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Confirm Password</label>
                                     <div className="mt-1 relative rounded-md shadow-sm">
                                         <input 
                                             required 
                                             type={showConfirmPassword ? "text" : "password"} 
-                                            className="block w-full border border-gray-300 rounded-md py-2 px-3 pr-10 focus:ring-emerald-500 focus:border-emerald-500" 
+                                            className="block w-full border border-gray-300 rounded-lg py-2 px-3 pr-10 text-sm focus:ring-emerald-500 focus:border-emerald-500" 
                                             value={formData.confirmPassword} 
                                             onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
                                         />
                                         <button
                                             type="button"
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] justify-center"
                                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                         >
                                             {showConfirmPassword ? (
@@ -268,41 +268,41 @@ export const RegisterAspirant: React.FC = () => {
                     </div>
 
                     {/* Section 2: Contest Details */}
-                    <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                        <h3 className="text-sm font-bold text-purple-800 uppercase mb-3 border-b border-purple-200 pb-2">2. Contest Application</h3>
+                    <div className="bg-purple-50 p-3 sm:p-4 rounded-xl border border-purple-200">
+                        <h3 className="text-xs sm:text-sm font-bold text-purple-800 uppercase mb-3 border-b border-purple-200 pb-2">2. Contest Application</h3>
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Position</label>
-                                    <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">Position</label>
+                                    <select className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}>
                                         {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                                     </select>
-                                    <p className="text-xs text-purple-700 mt-1 font-medium">Form Price: ₦{selectedPosPrice.toLocaleString()}</p>
+                                    <p className="text-[11px] sm:text-xs text-purple-700 mt-1 font-medium">Form Price: ₦{selectedPosPrice.toLocaleString()}</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">CGPA</label>
-                                    <input required type="text" placeholder="e.g. 3.50" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700">CGPA</label>
+                                    <input required type="text" placeholder="e.g. 3.50" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Manifesto</label>
-                                <textarea required rows={4} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.manifesto} onChange={e => setFormData({...formData, manifesto: e.target.value})} placeholder="State your vision..."></textarea>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700">Manifesto</label>
+                                <textarea required rows={4} className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.manifesto} onChange={e => setFormData({...formData, manifesto: e.target.value})} placeholder="State your vision..."></textarea>
                             </div>
                         </div>
                     </div>
 
                     {/* Section 3: Uploads */}
-                    <div className="grid grid-cols-2 gap-6 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 pt-2">
                         <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-2">Passport Photo</label>
-                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 bg-white">
+                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Passport Photo</label>
+                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 bg-white min-h-[120px] flex items-center justify-center">
                                  {passportPreview ? (
                                      <div className="relative">
-                                         <img src={passportPreview} className="h-32 mx-auto object-cover rounded" />
-                                         <button type="button" onClick={() => setPassportPreview(null)} className="text-xs text-red-600 underline mt-1">Remove</button>
+                                         <img src={passportPreview} className="h-28 sm:h-32 mx-auto object-cover rounded" />
+                                         <button type="button" onClick={() => setPassportPreview(null)} className="text-xs text-red-600 underline mt-1 block">Remove</button>
                                      </div>
                                  ) : (
-                                     <label className="cursor-pointer">
+                                     <label className="cursor-pointer block w-full py-2">
                                          <span className="text-emerald-600 text-sm font-medium">Upload Photo</span>
                                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'passport')} />
                                      </label>
@@ -310,15 +310,15 @@ export const RegisterAspirant: React.FC = () => {
                              </div>
                         </div>
                         <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-2">Result Document</label>
-                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 bg-white">
+                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Result Document</label>
+                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 bg-white min-h-[120px] flex items-center justify-center">
                                  {resultPreview ? (
                                      <div className="relative">
-                                         <img src={resultPreview} className="h-32 mx-auto object-contain" />
-                                         <button type="button" onClick={() => setResultPreview(null)} className="text-xs text-red-600 underline mt-1">Remove</button>
+                                         <img src={resultPreview} className="h-28 sm:h-32 mx-auto object-contain" />
+                                         <button type="button" onClick={() => setResultPreview(null)} className="text-xs text-red-600 underline mt-1 block">Remove</button>
                                      </div>
                                  ) : (
-                                     <label className="cursor-pointer">
+                                     <label className="cursor-pointer block w-full py-2">
                                          <span className="text-emerald-600 text-sm font-medium">Upload Result</span>
                                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'result')} />
                                      </label>
@@ -332,7 +332,7 @@ export const RegisterAspirant: React.FC = () => {
             </div>
 
             {/* Side Info */}
-            <div className="md:w-2/5 bg-gradient-to-br from-purple-900 to-emerald-900 text-white p-8 flex flex-col justify-center">
+            <div className="md:w-2/5 bg-gradient-to-br from-purple-900 to-emerald-900 text-white p-6 sm:p-8 flex flex-col justify-center">
                 <h3 className="text-2xl font-bold text-white mb-6">Aspirant Guidelines</h3>
                 <ul className="space-y-6">
                     <li className="flex items-start">

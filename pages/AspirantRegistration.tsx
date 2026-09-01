@@ -129,22 +129,22 @@ export const AspirantRegistration: React.FC<Props> = ({ user }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-10 px-4">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col md:flex-row">
-            <div className="md:w-3/5 p-8 border-r border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Aspirant Registration</h2>
-                <p className="text-sm text-gray-500 mb-6">Apply to contest for an executive position.</p>
+    <div className="max-w-4xl mx-auto py-6 sm:py-10 px-3 sm:px-4">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:flex-row">
+            <div className="md:w-3/5 p-4 sm:p-6 md:p-8 border-r border-gray-100">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">Aspirant Registration</h2>
+                <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6">Apply to contest for an executive position.</p>
 
-                {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
+                {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-xs sm:text-sm">{error}</div>}
 
-                <div className="bg-blue-50 p-4 rounded mb-6 border border-blue-100">
-                    <p className="text-xs text-blue-500 uppercase font-bold mb-1">Applicant Profile</p>
-                    <div className="flex justify-between items-end">
+                <div className="bg-blue-50 p-3 sm:p-4 rounded-xl mb-6 border border-blue-100">
+                    <p className="text-[10px] sm:text-xs text-blue-500 uppercase font-bold mb-1">Applicant Profile</p>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
                         <div>
-                            <p className="font-bold text-blue-900 text-lg">{user.fullName}</p>
-                            <p className="text-blue-700 text-sm">{user.matricNo}</p>
+                            <p className="font-bold text-blue-900 text-base sm:text-lg">{user.fullName}</p>
+                            <p className="text-blue-700 text-xs sm:text-sm">{user.matricNo}</p>
                         </div>
-                        <div className="text-right text-sm text-blue-600">
+                        <div className="sm:text-right text-xs sm:text-sm text-blue-600">
                             <p>{user.department}</p>
                             <p>{user.level}</p>
                         </div>
@@ -152,63 +152,63 @@ export const AspirantRegistration: React.FC<Props> = ({ user }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Position</label>
-                            <select className="mt-1 block w-full border border-gray-300 rounded px-3 py-2 bg-white" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700">Position</label>
+                            <select className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})}>
                                 {positions.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">CGPA</label>
-                            <input required type="text" placeholder="e.g. 3.50" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700">CGPA</label>
+                            <input required type="text" placeholder="e.g. 3.50" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.cgpa} onChange={e => setFormData({...formData, cgpa: e.target.value})} />
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="080..." />
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700">Phone Number</label>
+                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="080..." />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Address</label>
-                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Residential Address" />
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700">Address</label>
+                            <input required type="text" className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} placeholder="Residential Address" />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Manifesto</label>
-                        <textarea required rows={6} className="mt-1 block w-full border border-gray-300 rounded px-3 py-2" value={formData.manifesto} onChange={e => setFormData({...formData, manifesto: e.target.value})} placeholder="State your vision..."></textarea>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700">Manifesto</label>
+                        <textarea required rows={5} className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={formData.manifesto} onChange={e => setFormData({...formData, manifesto: e.target.value})} placeholder="State your vision..."></textarea>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 pt-2">
                         <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-2">Passport Photo</label>
-                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50">
+                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Passport Photo</label>
+                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 sm:p-4 text-center hover:bg-gray-50 bg-white min-h-[110px] flex items-center justify-center">
                                  {passportPreview ? (
                                      <div className="relative">
-                                         <img src={passportPreview} className="h-32 mx-auto object-cover rounded" />
-                                         <button type="button" onClick={() => setPassportPreview(null)} className="text-xs text-red-600 underline mt-1">Remove</button>
+                                         <img src={passportPreview} className="h-28 mx-auto object-cover rounded" />
+                                         <button type="button" onClick={() => setPassportPreview(null)} className="text-xs text-red-600 underline mt-1 block">Remove</button>
                                      </div>
                                  ) : (
-                                     <label className="cursor-pointer">
-                                         <span className="text-emerald-600 text-sm font-medium">Upload Photo</span>
+                                     <label className="cursor-pointer block w-full py-2">
+                                         <span className="text-emerald-600 text-xs sm:text-sm font-medium">Upload Photo</span>
                                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'passport')} />
                                      </label>
                                  )}
                              </div>
                         </div>
                         <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-2">Result Document (Proof)</label>
-                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50">
+                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Result Document (Proof)</label>
+                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 sm:p-4 text-center hover:bg-gray-50 bg-white min-h-[110px] flex items-center justify-center">
                                  {resultPreview ? (
                                      <div className="relative">
-                                         <img src={resultPreview} className="h-32 mx-auto object-contain" />
-                                         <button type="button" onClick={() => setResultPreview(null)} className="text-xs text-red-600 underline mt-1">Remove</button>
+                                         <img src={resultPreview} className="h-28 mx-auto object-contain" />
+                                         <button type="button" onClick={() => setResultPreview(null)} className="text-xs text-red-600 underline mt-1 block">Remove</button>
                                      </div>
                                  ) : (
-                                     <label className="cursor-pointer">
-                                         <span className="text-emerald-600 text-sm font-medium">Upload Result</span>
+                                     <label className="cursor-pointer block w-full py-2">
+                                         <span className="text-emerald-600 text-xs sm:text-sm font-medium">Upload Result</span>
                                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'result')} />
                                      </label>
                                  )}
@@ -221,7 +221,7 @@ export const AspirantRegistration: React.FC<Props> = ({ user }) => {
             </div>
 
             {/* Side Info */}
-            <div className="md:w-2/5 bg-emerald-900 text-emerald-100 p-8 flex flex-col justify-center">
+            <div className="md:w-2/5 bg-emerald-900 text-emerald-100 p-6 sm:p-8 flex flex-col justify-center border-t md:border-t-0 md:border-l border-emerald-800">
                 <h3 className="text-2xl font-bold text-white mb-6">Guidelines</h3>
                 <ul className="space-y-4">
                     <li className="flex items-start">

@@ -39,27 +39,27 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="flex min-h-[80vh] flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-[80vh] flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div onClick={() => navigate('/')} className="flex justify-center items-center mb-4 text-sm text-gray-500 cursor-pointer hover:text-emerald-600 transition-colors">
              <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
              Back to Home
         </div>
-        <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+        <h2 className="mt-1 sm:mt-2 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && <div className="bg-red-50 text-red-700 p-3 rounded text-sm">{error}</div>}
+      <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-6 sm:py-8 px-4 shadow sm:rounded-xl sm:px-10 rounded-lg">
+          <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
+            {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs sm:text-sm break-words">{error}</div>}
             
             <div>
-              <label className="block text-sm font-medium text-gray-700">Matric Number</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">Matric Number</label>
               <div className="mt-1">
                 <input
                   type="text"
                   required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                   value={matricNo}
                   onChange={(e) => setMatricNo(e.target.value)}
                 />
@@ -67,18 +67,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700">Password</label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 pr-10"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] justify-center"
                     onClick={() => setShowPassword(!showPassword)}
                 >
                     {showPassword ? (
