@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { db } from '../services/mockDb';
 import { User, UserRole } from '../types';
+import { sessionService } from '../services/sessionService';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -17,6 +18,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   
   const [matricNo, setMatricNo] = useState('');
   const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    // If the user already has a valid active session, redirect them to their respective portal
+    const existingUser = sessionService.getValidUser();
+    if (existingUser) {
+      if (existingUser.role === UserRole.ADMIN) {
+        navigate('/admin', { replace: true });
+      } else if (existingUser.role === UserRole.STUDENT) {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
