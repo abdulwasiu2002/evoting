@@ -122,6 +122,13 @@ interface IDatabaseService {
   
   // Settings
   getElectionSettings(): Promise<ElectionSettings>;
+  getElectionStats(): Promise<{
+      totalApproved: number,
+      totalRejected: number,
+      totalPending: number,
+      totalVotesCast: number,
+      distinctVoters: number
+  }>;
   updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings>;
   
   // Departments
@@ -309,6 +316,25 @@ class MockDB implements IDatabaseService {
   async getElectionSettings(): Promise<ElectionSettings> {
     await delay(200);
     return this.getItem<ElectionSettings>(SETTINGS_KEY) || defaultSettings;
+  }
+
+  async getElectionStats(): Promise<{
+      totalApproved: number,
+      totalRejected: number,
+      totalPending: number,
+      totalVotesCast: number,
+      distinctVoters: number
+  }> {
+    await delay(200);
+    const users = this.getItems<User>(USERS_KEY).filter(u => u.role === 'student');
+    const votes = this.getItems<Vote>(VOTES_KEY);
+    const totalApproved = users.filter(u => u.status === 'approved').length;
+    const totalRejected = users.filter(u => u.status === 'rejected').length;
+    const totalPending = users.filter(u => u.status === 'pending' || !u.status).length;
+    const totalVotesCast = votes.length;
+    const approvedUserIds = new Set(users.filter(u => u.status === 'approved').map(u => u.id));
+    const distinctVoters = new Set(votes.map(v => v.studentId).filter(id => approvedUserIds.has(id))).size;
+    return { totalApproved, totalRejected, totalPending, totalVotesCast, distinctVoters };
   }
 
   async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {
@@ -797,6 +823,56 @@ class SupabaseDB implements IDatabaseService {
       logPerfMetrics('getElectionSettings', performance.now() - t0, defaultSettings);
       return defaultSettings;
     }
+  }
+
+  async getElectionStats(): Promise<{
+      totalApproved: number,
+      totalRejected: number,
+      totalPending: number,
+      totalVotesCast: number,
+      distinctVoters: number
+  }> {
+      const t0 = performance.now();
+      
+      const pApproved = supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'approved');
+      const pRejected = supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'rejected');
+      const pPending = supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'pending');
+      const pVotes = supabase.from('votes').select('id', { count: 'exact', head: true });
+      
+      let allStudentIds: string[] = [];
+      let page = 0;
+      const limit = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('votes')
+          .select('student_id')
+          .range(page * limit, (page + 1) * limit - 1);
+          
+        if (error || !data) break;
+        allStudentIds = allStudentIds.concat(data.map((v: any) => v.student_id));
+        if (data.length < limit) break;
+        page++;
+      }
+      
+      const votingStudentIds = Array.from(new Set(allStudentIds));
+      
+      // Fetch all approved students directly
+      const { data: approvedUsers } = await supabase.from('users').select('id').eq('role', 'student').eq('status', 'approved');
+      const approvedIds = new Set((approvedUsers || []).map(u => u.id));
+      
+      const distinctVoters = votingStudentIds.filter(id => approvedIds.has(id)).length;
+      
+      const [resApp, resRej, resPend, resVotes] = await Promise.all([pApproved, pRejected, pPending, pVotes]);
+      
+      const stats = {
+          totalApproved: resApp.count || 0,
+          totalRejected: resRej.count || 0,
+          totalPending: resPend.count || 0,
+          totalVotesCast: resVotes.count || 0,
+          distinctVoters
+      };
+      logPerfMetrics('getElectionStats', performance.now() - t0, stats);
+      return stats;
   }
 
   async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {

@@ -24,6 +24,9 @@ export const AdminDashboard: React.FC = () => {
   const [departments, setDepartments] = useState<string[]>([]);
   const [departmentStats, setDepartmentStats] = useState<{name: string, count: number}[]>([]);
   const [voterBreakdown, setVoterBreakdown] = useState<{byLevel: {name: string, count: number}[], byDepartment: {name: string, count: number}[]}>({ byLevel: [], byDepartment: [] });
+  const [electionStats, setElectionStats] = useState<{totalApproved: number, totalRejected: number, totalPending: number, totalVotesCast: number, distinctVoters: number}>({
+      totalApproved: 0, totalRejected: 0, totalPending: 0, totalVotesCast: 0, distinctVoters: 0
+  });
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -124,6 +127,11 @@ export const AdminDashboard: React.FC = () => {
       setVoterBreakdown(breakdown);
   }
 
+  const fetchElectionStats = async () => {
+      const stats = await db.getElectionStats();
+      setElectionStats(stats);
+  }
+
   const fetchAudit = async () => {
       const audit = await db.getAuditLogs('admin-1');
       setLogs(audit);
@@ -170,6 +178,7 @@ export const AdminDashboard: React.FC = () => {
         fetchResults();
         fetchDepartmentStats();
         fetchVoterBreakdown();
+        fetchElectionStats();
         fetchAudit(); 
     }
 
@@ -444,14 +453,15 @@ export const AdminDashboard: React.FC = () => {
     setIsGeneratingReport(true);
     try {
         // Fetch fresh up-to-date data
-        const [freshResults, freshCandidates, freshPositions, freshDeptStats, freshSettings, freshDepts, freshBreakdown] = await Promise.all([
+        const [freshResults, freshCandidates, freshPositions, freshDeptStats, freshSettings, freshDepts, freshBreakdown, freshStats] = await Promise.all([
              db.getResults(),
              db.getCandidates(),
              db.getPositions(),
              db.getDepartmentStats(),
              db.getElectionSettings(),
              db.getDepartments(),
-             db.getVoterBreakdown()
+             db.getVoterBreakdown(),
+             db.getElectionStats()
         ]);
 
         const doc = new jsPDF();
@@ -466,9 +476,12 @@ export const AdminDashboard: React.FC = () => {
             };
         });
 
-        const currentTotalVotes = freshResults.reduce((acc, curr) => acc + curr.count, 0);
-        const currentTotalRegistered = freshDeptStats.reduce((acc, curr) => acc + curr.count, 0);
-        const currentDistinctVoters = freshBreakdown.byLevel.reduce((acc, curr) => acc + curr.count, 0);
+        const currentTotalVotes = freshStats.totalVotesCast;
+        const currentTotalRegistered = freshStats.totalApproved;
+        const currentRejected = freshStats.totalRejected;
+        const currentPending = freshStats.totalPending;
+        const currentDistinctVoters = freshStats.distinctVoters;
+        
         const turnoutPercentage = currentTotalRegistered > 0 
             ? Math.round((currentDistinctVoters / currentTotalRegistered) * 100) 
             : 0;
@@ -597,24 +610,28 @@ export const AdminDashboard: React.FC = () => {
         doc.setTextColor(51, 65, 85);
         
         const sumY = 64;
-        doc.text(`• Total Registered Voters: ${currentTotalRegistered}`, 20, sumY);
-        doc.text(`• Total Votes Cast: ${currentTotalVotes}`, 20, sumY + 8);
-        doc.text(`• Overall Voter Turnout: ${turnoutPercentage}%`, 20, sumY + 16);
+        doc.text(`• Total Approved/Registered Voters: ${currentTotalRegistered}`, 20, sumY);
+        doc.text(`• Rejected Voters: ${currentRejected}`, 20, sumY + 6);
+        doc.text(`• Pending Voters: ${currentPending}`, 20, sumY + 12);
         
-        doc.text(`• Total Positions Contested: ${positionNames.length}`, 110, sumY);
-        doc.text(`• Total Candidates: ${freshCandidates.length}`, 110, sumY + 8);
-        doc.text(`• Election State: ${freshSettings.isVotingEnabled ? 'Voting In Progress' : 'Concluded & Certified'}`, 110, sumY + 16);
+        doc.text(`• Distinct Approved Voters Who Voted: ${currentDistinctVoters}`, 110, sumY);
+        doc.text(`• Total Votes Cast (All Positions): ${currentTotalVotes}`, 110, sumY + 6);
+        doc.text(`• Overall Voter Turnout: ${turnoutPercentage}%`, 110, sumY + 12);
+        
+        doc.text(`• Total Positions Contested: ${positionNames.length}`, 20, sumY + 22);
+        doc.text(`• Total Candidates: ${freshCandidates.length}`, 20, sumY + 28);
+        doc.text(`• Election State: ${freshSettings.isVotingEnabled ? 'Voting In Progress' : 'Concluded & Certified'}`, 110, sumY + 22);
 
         // --- SECTION 2: OFFICIAL WINNERS TABLE ---
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(4, 120, 87);
-        doc.text("2. OFFICIAL ELECTION WINNERS (ELECTED CANDIDATES)", 14, 92);
+        doc.text("2. OFFICIAL ELECTION WINNERS (ELECTED CANDIDATES)", 14, 102);
 
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "italic");
         doc.setTextColor(100, 116, 139);
-        doc.text("Official declaration of winning candidates. Contested winners and single-candidate (unopposed) winners are indicated.", 14, 97);
+        doc.text("Official declaration of winning candidates. Contested winners and single-candidate (unopposed) winners are indicated.", 14, 107);
 
         const winnersTableRows = winnersList.map((w, index) => [
             index + 1,
@@ -626,7 +643,7 @@ export const AdminDashboard: React.FC = () => {
         ]);
 
         autoTable(doc, {
-            startY: 101,
+            startY: 111,
             head: [["#", "Position", "Elected Candidate", "Department", "Votes Won", "Electoral Status"]],
             body: winnersTableRows,
             theme: 'grid',
@@ -834,9 +851,10 @@ export const AdminDashboard: React.FC = () => {
     link.click();
   };
 
-  const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
-  const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
-  const distinctVotersCount = voterBreakdown.byLevel.reduce((acc, curr) => acc + curr.count, 0);
+  const totalVotes = electionStats.totalVotesCast;
+  const totalRegistered = electionStats.totalApproved;
+  const totalRejected = electionStats.totalRejected;
+  const distinctVotersCount = electionStats.distinctVoters;
   
   const pendingAspirants = aspirants.filter(a => a.status === 'pending');
   const approvedAspirants = aspirants.filter(a => a.status === 'approved');
@@ -895,7 +913,7 @@ export const AdminDashboard: React.FC = () => {
       {/* ANALYTICS TAB */}
       {activeTab === 'analytics' && (
           <div className="space-y-8 animate-fade-in-up">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:shadow-md transition-shadow">
                       <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                            <svg className="w-24 h-24 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
@@ -907,6 +925,20 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="w-full bg-slate-100 h-1 mt-4 rounded-full overflow-hidden">
                           <div className="bg-blue-500 h-full rounded-full" style={{ width: '100%' }}></div>
+                      </div>
+                  </div>
+
+                  <div className="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:shadow-md transition-shadow">
+                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                           <svg className="w-24 h-24 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"></path></svg>
+                      </div>
+                      <p className="text-sm text-slate-500 font-bold uppercase tracking-wider mb-1">Rejected Voters</p>
+                      <div className="flex items-baseline">
+                          <p className="text-4xl font-extrabold text-slate-800">{totalRejected}</p>
+                          <span className="ml-2 text-sm font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Inactive</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1 mt-4 rounded-full overflow-hidden">
+                          <div className="bg-red-500 h-full rounded-full" style={{ width: '100%' }}></div>
                       </div>
                   </div>
 
