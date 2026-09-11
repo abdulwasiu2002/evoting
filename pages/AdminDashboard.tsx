@@ -23,6 +23,7 @@ export const AdminDashboard: React.FC = () => {
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [departmentStats, setDepartmentStats] = useState<{name: string, count: number}[]>([]);
+  const [voterBreakdown, setVoterBreakdown] = useState<{byLevel: {name: string, count: number}[], byDepartment: {name: string, count: number}[]}>({ byLevel: [], byDepartment: [] });
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -118,6 +119,11 @@ export const AdminDashboard: React.FC = () => {
       setDepartmentStats(stats);
   }
 
+  const fetchVoterBreakdown = async () => {
+      const breakdown = await db.getVoterBreakdown();
+      setVoterBreakdown(breakdown);
+  }
+
   const fetchAudit = async () => {
       const audit = await db.getAuditLogs('admin-1');
       setLogs(audit);
@@ -163,6 +169,7 @@ export const AdminDashboard: React.FC = () => {
     if (activeTab === 'analytics') {
         fetchResults();
         fetchDepartmentStats();
+        fetchVoterBreakdown();
         fetchAudit(); 
     }
 
@@ -437,13 +444,14 @@ export const AdminDashboard: React.FC = () => {
     setIsGeneratingReport(true);
     try {
         // Fetch fresh up-to-date data
-        const [freshResults, freshCandidates, freshPositions, freshDeptStats, freshSettings, freshDepts] = await Promise.all([
+        const [freshResults, freshCandidates, freshPositions, freshDeptStats, freshSettings, freshDepts, freshBreakdown] = await Promise.all([
              db.getResults(),
              db.getCandidates(),
              db.getPositions(),
              db.getDepartmentStats(),
              db.getElectionSettings(),
-             db.getDepartments()
+             db.getDepartments(),
+             db.getVoterBreakdown()
         ]);
 
         const doc = new jsPDF();
@@ -460,9 +468,9 @@ export const AdminDashboard: React.FC = () => {
 
         const currentTotalVotes = freshResults.reduce((acc, curr) => acc + curr.count, 0);
         const currentTotalRegistered = freshDeptStats.reduce((acc, curr) => acc + curr.count, 0);
-        const activePosCount = freshPositions.length > 0 ? freshPositions.length : 1;
+        const currentDistinctVoters = freshBreakdown.byLevel.reduce((acc, curr) => acc + curr.count, 0);
         const turnoutPercentage = currentTotalRegistered > 0 
-            ? Math.round((currentTotalVotes / (currentTotalRegistered * activePosCount)) * 100) 
+            ? Math.round((currentDistinctVoters / currentTotalRegistered) * 100) 
             : 0;
 
         // Position names to evaluate
@@ -828,6 +836,7 @@ export const AdminDashboard: React.FC = () => {
 
   const totalVotes = results.reduce((acc, curr) => acc + curr.votes, 0);
   const totalRegistered = departmentStats.reduce((acc, curr) => acc + curr.count, 0);
+  const distinctVotersCount = voterBreakdown.byLevel.reduce((acc, curr) => acc + curr.count, 0);
   
   const pendingAspirants = aspirants.filter(a => a.status === 'pending');
   const approvedAspirants = aspirants.filter(a => a.status === 'approved');
@@ -921,9 +930,9 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <p className="text-sm text-purple-200 font-bold uppercase tracking-wider mb-1">Voter Turnout</p>
                       <div className="flex items-baseline">
-                          <p className="text-4xl font-extrabold">{totalRegistered > 0 ? Math.round((totalVotes / (totalRegistered * positions.length || 1)) * 100) : 0}%</p>
+                          <p className="text-4xl font-extrabold">{totalRegistered > 0 ? Math.round((distinctVotersCount / totalRegistered) * 100) : 0}%</p>
                       </div>
-                      <p className="text-purple-200 text-xs mt-4">Engagement Rate</p>
+                      <p className="text-purple-200 text-xs mt-4">Engagement Rate ({distinctVotersCount} of {totalRegistered} voted)</p>
                   </div>
               </div>
 

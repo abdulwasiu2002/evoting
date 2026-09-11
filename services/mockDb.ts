@@ -1276,18 +1276,25 @@ class SupabaseDB implements IDatabaseService {
 
   async getResults(): Promise<{candidateId: string, count: number}[]> {
     const t0 = performance.now();
-    const { data, error } = await supabase.from('votes').select('candidate_id');
-    if (error) {
+    // Fetch all candidates first
+    const { data: candidates, error: cError } = await supabase.from('candidates').select('id');
+    if (cError) {
       logPerfMetrics('getResults', performance.now() - t0, []);
       return [];
     }
-    const counts: Record<string, number> = {};
-    (data || []).forEach((v: any) => {
-      counts[v.candidate_id] = (counts[v.candidate_id] || 0) + 1;
-    });
-    const mapped = Object.entries(counts).map(([id, count]) => ({ candidateId: id, count }));
-    logPerfMetrics('getResults', performance.now() - t0, mapped);
-    return mapped;
+
+    // Perform database-side aggregation for each candidate using exact count
+    // This perfectly bypasses the 1000-row select limit by letting Postgres handle the COUNT(*)
+    const counts = await Promise.all((candidates || []).map(async (c) => {
+      const { count, error } = await supabase
+        .from('votes')
+        .select('id', { count: 'exact', head: true })
+        .eq('candidate_id', c.id);
+      return { candidateId: c.id, count: count || 0 };
+    }));
+
+    logPerfMetrics('getResults', performance.now() - t0, counts);
+    return counts;
   }
 
   async getAuditLogs(adminId: string): Promise<AuditLog[]> {
@@ -1316,9 +1323,24 @@ class SupabaseDB implements IDatabaseService {
       byDepartment: {name: string, count: number}[]
   }> {
       const { data: users } = await supabase.from('users').select('id, level, department');
-      const { data: votes } = await supabase.from('votes').select('student_id');
       
-      const votingStudentIds = new Set((votes || []).map((v: any) => v.student_id));
+      // Paginate to get all distinct student_ids from votes without being capped at 1000
+      let allStudentIds: string[] = [];
+      let page = 0;
+      const limit = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('votes')
+          .select('student_id')
+          .range(page * limit, (page + 1) * limit - 1);
+          
+        if (error || !data) break;
+        allStudentIds = allStudentIds.concat(data.map((v: any) => v.student_id));
+        if (data.length < limit) break;
+        page++;
+      }
+      
+      const votingStudentIds = new Set(allStudentIds);
       const levelCounts: Record<string, number> = {};
       const deptCounts: Record<string, number> = {};
 
