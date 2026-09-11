@@ -657,6 +657,12 @@ class MockDB implements IDatabaseService {
     return Object.entries(counts).map(([candidateId, count]) => ({ candidateId, count }));
   }
 
+  async getCandidateVoteCount(candidateId: string): Promise<number> {
+      await delay(300);
+      const votes = this.getItems<Vote>(VOTES_KEY);
+      return votes.filter(v => v.candidateId === candidateId).length;
+  }
+
   async getAuditLogs(adminId: string): Promise<AuditLog[]> {
       return this.getItems<AuditLog>(AUDIT_KEY);
   }
@@ -1043,7 +1049,7 @@ class SupabaseDB implements IDatabaseService {
       const { data, error } = await supabase
         .from('aspirants')
         .select('id, full_name, matric_no, department, level, position, cgpa, manifesto, passport_url, result_url, address, phone, status, payment_status, payment_receipt_url, created_at')
-        .eq('matric_no', matricNo)
+        .ilike('matric_no', matricNo)
         .maybeSingle();
       if (error || !data) {
         logPerfMetrics('getMyAspirantProfile', performance.now() - t0, null);
@@ -1295,6 +1301,20 @@ class SupabaseDB implements IDatabaseService {
 
     logPerfMetrics('getResults', performance.now() - t0, counts);
     return counts;
+  }
+
+  async getCandidateVoteCount(candidateId: string): Promise<number> {
+      const t0 = performance.now();
+      const { count, error } = await supabase
+        .from('votes')
+        .select('id', { count: 'exact', head: true })
+        .eq('candidate_id', candidateId);
+      
+      if (error) {
+          console.error("Supabase getCandidateVoteCount error:", error);
+      }
+      logPerfMetrics('getCandidateVoteCount', performance.now() - t0, count);
+      return count || 0;
   }
 
   async getAuditLogs(adminId: string): Promise<AuditLog[]> {

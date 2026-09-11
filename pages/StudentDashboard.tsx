@@ -92,6 +92,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [positions, setPositions] = useState<Position[]>([]);
   const [myVotes, setMyVotes] = useState<Vote[]>([]);
   const [results, setResults] = useState<{candidateId: string, count: number}[]>([]);
+  const [myLiveVoteCount, setMyLiveVoteCount] = useState<number>(0);
   const [settings, setSettings] = useState<ElectionSettings | null>(null);
   const [candidatesLoading, setCandidatesLoading] = useState(true);
   const [candidateError, setCandidateError] = useState<string | null>(null);
@@ -125,7 +126,8 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
         setLoading(false); // Ballot ready immediately
 
         // Only fetch candidate results if the user is actually a candidate
-        const isCand = (cands as Candidate[]).some(c => c.matricNo === user.matricNo);
+        const normalizedUserMat = user.matricNo?.toLowerCase().trim();
+        const isCand = (cands as Candidate[]).some(c => c.matricNo?.toLowerCase().trim() === normalizedUserMat);
         if (isCand) {
           db.getResults()
             .then((r) => { if (isMounted) setResults(r); })
@@ -164,6 +166,34 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       isMounted = false;
     };
   }, [user.id, user.matricNo]);
+
+  const normalizedUserMatric = user.matricNo?.toLowerCase().trim();
+  const myCandidateProfile = candidates.find(c => c.matricNo?.toLowerCase().trim() === normalizedUserMatric);
+
+  useEffect(() => {
+    let isMounted = true;
+    let intervalId: any = null;
+
+    if (myCandidateProfile) {
+       const fetchLiveCount = async () => {
+           try {
+               const count = await db.getCandidateVoteCount(myCandidateProfile.id);
+               if (isMounted) setMyLiveVoteCount(count);
+           } catch (e) {
+               console.error("Live count error", e);
+           }
+       };
+       fetchLiveCount(); // initial fetch
+       intervalId = setInterval(fetchLiveCount, 5000); // poll every 5 seconds
+    } else {
+       setMyLiveVoteCount(0);
+    }
+
+    return () => {
+        isMounted = false;
+        if (intervalId) clearInterval(intervalId);
+    };
+  }, [myCandidateProfile?.id]);
 
   const handleAnalyze = async (candidate: Candidate) => {
     setAnalyzingId(candidate.id);
@@ -442,8 +472,6 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const pendingCount = getPendingVotes().length;
   const votingOpen = isVotingOpen();
 
-  const myCandidateProfile = candidates.find(c => c.matricNo === user.matricNo);
-  const myCandidateVotes = myCandidateProfile ? (results.find(r => r.candidateId === myCandidateProfile.id)?.count || 0) : 0;
   const aspirantPositionPrice = myAspirantProfile ? positions.find(p => p.name === myAspirantProfile.position)?.price || 0 : 0;
 
   if (candidatesLoading && candidates.length === 0) {
@@ -529,21 +557,28 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       )}
 
       {/* CANDIDATE PERFORMANCE WIDGET (Only if approved) */}
-      {myCandidateProfile && (
-          <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-lg shadow-lg p-6 text-white relative overflow-hidden">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
-              <div className="relative z-10 flex justify-between items-center">
-                  <div>
-                      <p className="text-purple-200 font-bold uppercase text-xs tracking-wider">Campaign Performance</p>
-                      <h2 className="text-2xl font-bold mt-1">{myCandidateProfile.position} Candidate</h2>
-                      <p className="text-purple-100 text-sm mt-1">You are visible on the ballot.</p>
-                  </div>
-                  <div className="text-center">
-                      <span className="block text-4xl font-extrabold">{myCandidateVotes}</span>
-                      <span className="text-xs text-purple-200 uppercase">Total Votes</span>
+      {myAspirantProfile?.status === 'approved' && (
+          myCandidateProfile ? (
+              <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-lg shadow-lg p-6 text-white relative overflow-hidden mt-6">
+                  <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+                  <div className="relative z-10 flex justify-between items-center">
+                      <div>
+                          <p className="text-purple-200 font-bold uppercase text-xs tracking-wider">Campaign Performance</p>
+                          <h2 className="text-2xl font-bold mt-1">{myCandidateProfile.position} Candidate</h2>
+                          <p className="text-purple-100 text-sm mt-1">You are visible on the ballot.</p>
+                      </div>
+                      <div className="text-center">
+                          <span className="block text-4xl font-extrabold">{myLiveVoteCount}</span>
+                          <span className="text-xs text-purple-200 uppercase">Total Votes</span>
+                      </div>
                   </div>
               </div>
-          </div>
+          ) : (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-6 rounded shadow-sm">
+                  <p className="text-yellow-700 font-bold">Candidate record not found</p>
+                  <p className="text-yellow-600 text-sm">Your application is approved, but your candidate profile is not yet visible on the ballot. Please contact the administrator.</p>
+              </div>
+          )
       )}
 
       {/* VOTING SECTION */}
