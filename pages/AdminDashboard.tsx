@@ -9,7 +9,7 @@ import { ElectionWizard } from '../components/ElectionWizard';
 import { 
   Vote as VoteIcon, Calendar, CheckCircle2, AlertTriangle, Layers, 
   PlusCircle, Archive, Trash2, Edit3, Copy, RefreshCw, ChevronDown, 
-  Award, ShieldCheck, Users, ExternalLink, Plus, Check
+  Award, ShieldCheck, Users, ExternalLink, Plus, Check, Search, Filter, Clock, Play, Power
 } from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Button } from '../components/Button';
@@ -30,6 +30,8 @@ export const AdminDashboard: React.FC = () => {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardElection, setWizardElection] = useState<Election | null>(null);
   const [electionActionMsg, setElectionActionMsg] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [electionFilterStatus, setElectionFilterStatus] = useState<string>('all');
+  const [electionSearchQuery, setElectionSearchQuery] = useState<string>('');
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [aspirants, setAspirants] = useState<Aspirant[]>([]);
   const [executives, setExecutives] = useState<OutgoingExecutive[]>([]);
@@ -1033,7 +1035,16 @@ export const AdminDashboard: React.FC = () => {
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Admin Console</h1>
             <p className="text-slate-500 text-sm mt-1">Manage elections, candidates, and view real-time analytics.</p>
         </div>
-        <div className="flex gap-3 mt-4 md:mt-0">
+        <div className="flex gap-3 mt-4 md:mt-0 items-center flex-wrap">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleOpenWizard(null)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm flex items-center gap-2 py-2 px-4 rounded-xl text-sm transition-all"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Create New Election</span>
+            </Button>
             <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200 flex items-center">
                 <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
                 System Active
@@ -1117,7 +1128,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-6 overflow-x-auto">
-        <nav className="-mb-px flex space-x-6">
+        <nav className="-mb-px flex space-x-4 sm:space-x-6">
           {['analytics', 'elections', 'pending', 'aspirants', 'results', 'candidates', 'positions', 'departments', 'audit', 'settings', 'executives'].map((tab) => (
             <button
               key={tab}
@@ -1126,10 +1137,26 @@ export const AdminDashboard: React.FC = () => {
                 activeTab === tab
                   ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm capitalize transition-colors rounded-t-lg`}
+              } whitespace-nowrap py-3.5 px-4 border-b-2 font-medium text-sm transition-colors rounded-t-lg flex items-center gap-2`}
             >
-              {tab} {tab === 'pending' && pendingUsers.length > 0 && <span className="ml-2 bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full text-xs font-bold">{pendingUsers.length}</span>}
-              {tab === 'aspirants' && pendingAspirants.length > 0 && <span className="ml-2 bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full text-xs font-bold">{pendingAspirants.length}</span>}
+              {tab === 'elections' ? (
+                <>
+                  <VoteIcon className="w-4 h-4 text-emerald-600" />
+                  <span className="font-semibold text-slate-800">Elections Management</span>
+                  <span className="ml-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold">
+                    {elections.length}
+                  </span>
+                  {elections.some(e => e.status === 'live') && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" title="Live Election Active"></span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="capitalize">{tab}</span>
+                  {tab === 'pending' && pendingUsers.length > 0 && <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full text-xs font-bold">{pendingUsers.length}</span>}
+                  {tab === 'aspirants' && pendingAspirants.length > 0 && <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full text-xs font-bold">{pendingAspirants.length}</span>}
+                </>
+              )}
             </button>
           ))}
         </nav>
@@ -1288,6 +1315,409 @@ export const AdminDashboard: React.FC = () => {
                   </div>
               </div>
           </div>
+      )}
+
+      {/* ELECTIONS MANAGEMENT TAB */}
+      {activeTab === 'elections' && (
+        <div className="space-y-6 animate-fade-in-up">
+          {/* Header & Main Action */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <VoteIcon className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl font-bold text-slate-900">Elections Management</h2>
+              </div>
+              <p className="text-slate-500 text-sm mt-1">
+                Configure and orchestrate multi-session elections, enforce departmental voter eligibility, schedule polling windows, and launch the 5-step Election Wizard.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchElections()}
+                className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Refresh</span>
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => handleOpenWizard(null)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-2 py-2 px-4 rounded-xl shadow-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Create New Election</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick Stats Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Elections</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{elections.length}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Across all sessions</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                <Layers className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Active / Live</p>
+                <p className="text-2xl font-bold text-emerald-700 mt-1">{elections.filter(e => e.status === 'live').length}</p>
+                <p className="text-[11px] text-emerald-600 mt-0.5">Currently accepting votes</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <VoteIcon className="w-6 h-6 animate-pulse" />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Scheduled</p>
+                <p className="text-2xl font-bold text-blue-700 mt-1">{elections.filter(e => e.status === 'scheduled').length}</p>
+                <p className="text-[11px] text-blue-500 mt-0.5">Awaiting start window</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Calendar className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Draft & Archived</p>
+                <p className="text-2xl font-bold text-slate-700 mt-1">{elections.filter(e => e.status === 'draft' || e.status === 'archived').length}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Staging & historical records</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Archive className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[
+                { key: 'all', label: 'All', count: elections.length },
+                { key: 'live', label: 'Live', count: elections.filter(e => e.status === 'live').length },
+                { key: 'scheduled', label: 'Scheduled', count: elections.filter(e => e.status === 'scheduled').length },
+                { key: 'draft', label: 'Draft', count: elections.filter(e => e.status === 'draft').length },
+                { key: 'closed', label: 'Closed', count: elections.filter(e => e.status === 'closed').length },
+                { key: 'archived', label: 'Archived', count: elections.filter(e => e.status === 'archived').length }
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setElectionFilterStatus(f.key)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    electionFilterStatus === f.key
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    electionFilterStatus === f.key ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="relative min-w-[240px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={electionSearchQuery}
+                onChange={(e) => setElectionSearchQuery(e.target.value)}
+                placeholder="Search by title, session, or dept..."
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+              />
+              {electionSearchQuery && (
+                <button
+                  onClick={() => setElectionSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Elections List */}
+          {(() => {
+            const filteredElections = elections.filter((el) => {
+              const matchesStatus = electionFilterStatus === 'all' || el.status === electionFilterStatus;
+              const q = electionSearchQuery.trim().toLowerCase();
+              const matchesSearch = !q ||
+                el.title.toLowerCase().includes(q) ||
+                el.session.toLowerCase().includes(q) ||
+                (el.description && el.description.toLowerCase().includes(q)) ||
+                (el.eligibleDepartments && el.eligibleDepartments.some(d => d.toLowerCase().includes(q)));
+              return matchesStatus && matchesSearch;
+            });
+
+            if (filteredElections.length === 0) {
+              return (
+                <div className="bg-white p-12 rounded-2xl shadow-sm border border-slate-100 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+                    <VoteIcon className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800">No Elections Found</h3>
+                  <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
+                    {electionSearchQuery || electionFilterStatus !== 'all'
+                      ? "No elections match your current filter and search query."
+                      : "No elections have been registered yet in the system."}
+                  </p>
+                  <div className="mt-5 flex items-center justify-center gap-3">
+                    {(electionSearchQuery || electionFilterStatus !== 'all') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setElectionFilterStatus('all'); setElectionSearchQuery(''); }}
+                        className="text-xs"
+                      >
+                        Reset Filters
+                      </Button>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleOpenWizard(null)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-xs flex items-center gap-1.5"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Create New Election</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 gap-5">
+                {filteredElections.map((el) => {
+                  const isCurrentScope = el.id === selectedElectionId;
+                  const isBaseline = el.id === DEFAULT_ELECTION_ID;
+
+                  return (
+                    <div
+                      key={el.id}
+                      className={`bg-white rounded-2xl p-6 transition-all border ${
+                        isCurrentScope
+                          ? 'border-emerald-500 shadow-md ring-2 ring-emerald-100/80'
+                          : 'border-slate-200/80 shadow-sm hover:border-slate-300 hover:shadow'
+                      }`}
+                    >
+                      {/* Top Badges & Meta */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            el.status === 'live' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            el.status === 'scheduled' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                            el.status === 'closed' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                            el.status === 'archived' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                            'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {el.status === 'live' && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>}
+                            {el.status === 'scheduled' && <Clock className="w-3.5 h-3.5" />}
+                            <span>{el.status.toUpperCase()}</span>
+                          </span>
+
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            Session: <strong className="text-slate-900">{el.session}</strong>
+                          </span>
+
+                          {isCurrentScope && (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Active Dashboard Scope</span>
+                            </span>
+                          )}
+
+                          {isBaseline && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              Primary Live Election
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-slate-400 font-mono">
+                          ID: <span className="text-slate-600 font-semibold">{el.id}</span>
+                        </div>
+                      </div>
+
+                      {/* Main Title & Description */}
+                      <div className="mt-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="text-lg sm:text-xl font-bold text-slate-900">{el.title}</h3>
+                            <p className="text-slate-500 text-xs sm:text-sm mt-1 leading-relaxed">
+                              {el.description || 'No description provided.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Config Details Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5 bg-slate-50/80 p-4 rounded-xl border border-slate-100 text-xs">
+                          <div>
+                            <span className="text-slate-400 font-semibold block uppercase tracking-wider text-[10px]">Polling Dates</span>
+                            <div className="flex items-center gap-1.5 text-slate-700 font-medium mt-1">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{el.startDate} → {el.endDate}</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 font-semibold block uppercase tracking-wider text-[10px]">Eligible Levels</span>
+                            <p className="text-slate-700 font-medium mt-1 truncate">
+                              {el.eligibleLevels?.join(', ') || 'All Levels'}
+                            </p>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 font-semibold block uppercase tracking-wider text-[10px]">Eligible Departments</span>
+                            <p className="text-slate-700 font-medium mt-1 truncate">
+                              {el.eligibleDepartments?.join(', ') || 'All Departments'}
+                            </p>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 font-semibold block uppercase tracking-wider text-[10px]">Aspirants & Fee</span>
+                            <p className="text-slate-700 font-medium mt-1">
+                              {el.aspirantRegistrationOpen ? 'Registration Open' : 'Registration Closed'}
+                              {' • '}
+                              {el.aspirantFeeRequired ? 'Fee Required' : 'Free Entry'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Action Controls */}
+                      <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                          {!isCurrentScope ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSwitchElection(el.id)}
+                              className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs font-semibold py-1.5"
+                            >
+                              <VoteIcon className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                              <span>Scope Dashboard to This Election</span>
+                            </Button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Dashboard Scoped Here</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Quick Lifecycle Status Action */}
+                          {(el.status === 'draft' || el.status === 'scheduled') && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Publish and activate "${el.title}" as LIVE?\n\nThis will open voting for eligible students and automatically close any previously live election.`)) {
+                                  handleStatusChange(el.id, 'live');
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 shadow-sm transition-colors"
+                              title="Go live with this election"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              <span>Go Live</span>
+                            </button>
+                          )}
+
+                          {el.status === 'live' && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Close voting for "${el.title}"?\n\nStudents will no longer be able to cast votes in this election.`)) {
+                                  handleStatusChange(el.id, 'closed');
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-1 shadow-sm transition-colors"
+                              title="Close active voting"
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                              <span>Close Voting</span>
+                            </button>
+                          )}
+
+                          {el.status === 'closed' && (
+                            <button
+                              onClick={() => handleArchiveElection(el.id)}
+                              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 flex items-center gap-1 transition-colors"
+                              title="Archive election for read-only audit"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                              <span>Archive</span>
+                            </button>
+                          )}
+
+                          {/* Quick Status Dropdown */}
+                          <select
+                            value={el.status}
+                            onChange={(e) => handleStatusChange(el.id, e.target.value as ElectionStatus)}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-300 outline-none cursor-pointer focus:ring-2 focus:ring-emerald-500"
+                            title="Change Election Status"
+                          >
+                            <option value="draft">Status: Draft</option>
+                            <option value="scheduled">Status: Scheduled</option>
+                            <option value="live">Status: Live</option>
+                            <option value="closed">Status: Closed</option>
+                            <option value="archived">Status: Archived</option>
+                          </select>
+
+                          {/* Wizard / Edit Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenWizard(el)}
+                            className="text-xs font-semibold py-1.5 flex items-center gap-1 text-slate-700 hover:bg-slate-100"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit in Wizard</span>
+                          </Button>
+
+                          {/* Duplicate Setup Button */}
+                          <button
+                            onClick={() => handleDuplicateElection(el)}
+                            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                            title="Duplicate Election setup & positions"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+
+                          {/* Delete Button (Guarded) */}
+                          {!isBaseline && (
+                            <button
+                              onClick={() => handleDeleteElection(el.id)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Delete election (only if 0 votes exist)"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
       )}
 
       {/* PENDING USERS TAB */}

@@ -1286,8 +1286,10 @@ class SupabaseDB implements IDatabaseService {
       
       // Scoped votes count
       let votesQuery = supabase.from('votes').select('id', { count: 'exact', head: true });
-      if (electionId && electionId !== DEFAULT_ELECTION_ID) {
-        votesQuery = votesQuery.eq('election_id', electionId);
+      if (targetId === DEFAULT_ELECTION_ID) {
+        votesQuery = votesQuery.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+      } else {
+        votesQuery = votesQuery.eq('election_id', targetId);
       }
 
       let allStudentIds: string[] = [];
@@ -1295,8 +1297,10 @@ class SupabaseDB implements IDatabaseService {
       const limit = 1000;
       while (true) {
         let pageQuery = supabase.from('votes').select('student_id');
-        if (electionId && electionId !== DEFAULT_ELECTION_ID) {
-          pageQuery = pageQuery.eq('election_id', electionId);
+        if (targetId === DEFAULT_ELECTION_ID) {
+          pageQuery = pageQuery.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+        } else {
+          pageQuery = pageQuery.eq('election_id', targetId);
         }
         const { data, error } = await pageQuery.range(page * limit, (page + 1) * limit - 1);
         
@@ -1372,7 +1376,11 @@ class SupabaseDB implements IDatabaseService {
       logPerfMetrics('getPositions', performance.now() - t0, []);
       return [];
     }
-    const filtered = (data || []).filter((d: any) => !d.election_id || d.election_id === targetId);
+    const filtered = (data || []).filter((d: any) => 
+      targetId === DEFAULT_ELECTION_ID 
+        ? (!d.election_id || d.election_id === DEFAULT_ELECTION_ID) 
+        : d.election_id === targetId
+    );
     const mapped = filtered.map((d: any) => ({
         name: d.name,
         price: Number(d.price) || 0,
@@ -1565,7 +1573,11 @@ class SupabaseDB implements IDatabaseService {
         logPerfMetrics('getAspirants', performance.now() - t0, []);
         return [];
       }
-      const filtered = (data || []).filter((a: any) => !a.election_id || a.election_id === targetId);
+      const filtered = (data || []).filter((a: any) => 
+        targetId === DEFAULT_ELECTION_ID 
+          ? (!a.election_id || a.election_id === DEFAULT_ELECTION_ID) 
+          : a.election_id === targetId
+      );
       const mapped = filtered.map(this.mapAspirant);
       logPerfMetrics('getAspirants', performance.now() - t0, mapped);
       return mapped;
@@ -1574,11 +1586,18 @@ class SupabaseDB implements IDatabaseService {
   async getMyAspirantProfile(matricNo: string, electionId?: string): Promise<Aspirant | null> {
       const t0 = performance.now();
       const targetId = electionId || DEFAULT_ELECTION_ID;
-      const { data, error } = await supabase
+      let query = supabase
         .from('aspirants')
         .select('*')
-        .ilike('matric_no', matricNo)
-        .maybeSingle();
+        .ilike('matric_no', matricNo);
+
+      if (targetId === DEFAULT_ELECTION_ID) {
+        query = query.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+      } else {
+        query = query.eq('election_id', targetId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error || !data) {
         logPerfMetrics('getMyAspirantProfile', performance.now() - t0, null);
@@ -1690,7 +1709,11 @@ class SupabaseDB implements IDatabaseService {
       logPerfMetrics('getCandidates', performance.now() - t0, []);
       return [];
     }
-    const filtered = (data || []).filter((c: any) => !c.election_id || c.election_id === targetId);
+    const filtered = (data || []).filter((c: any) => 
+      targetId === DEFAULT_ELECTION_ID 
+        ? (!c.election_id || c.election_id === DEFAULT_ELECTION_ID) 
+        : c.election_id === targetId
+    );
     const mapped = filtered.map((c: any) => ({
       id: c.id,
       name: c.name,
@@ -1719,7 +1742,11 @@ class SupabaseDB implements IDatabaseService {
       logPerfMetrics('getVotingCandidates', performance.now() - t0, []);
       return [];
     }
-    const filtered = (data || []).filter((c: any) => !c.election_id || c.election_id === targetId);
+    const filtered = (data || []).filter((c: any) => 
+      targetId === DEFAULT_ELECTION_ID 
+        ? (!c.election_id || c.election_id === DEFAULT_ELECTION_ID) 
+        : c.election_id === targetId
+    );
     const mapped = filtered.map((c: any) => ({
       id: c.id,
       name: c.name,
@@ -1791,12 +1818,18 @@ class SupabaseDB implements IDatabaseService {
     if (!settings.isVotingEnabled) throw new Error('Voting is closed');
 
     // Database check for duplicate vote within this election
-    const { data: existing } = await supabase.from('votes')
+    let existingQuery = supabase.from('votes')
       .select('id')
       .eq('student_id', studentId)
-      .eq('position', position)
-      .eq('election_id', targetId)
-      .maybeSingle();
+      .eq('position', position);
+
+    if (targetId === DEFAULT_ELECTION_ID) {
+      existingQuery = existingQuery.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+    } else {
+      existingQuery = existingQuery.eq('election_id', targetId);
+    }
+
+    const { data: existing } = await existingQuery.maybeSingle();
 
     if (existing) throw new Error('Already voted for this position in this election');
 
@@ -1824,7 +1857,9 @@ class SupabaseDB implements IDatabaseService {
     const t0 = performance.now();
     const targetId = electionId || DEFAULT_ELECTION_ID;
     let query = supabase.from('votes').select('*').eq('student_id', studentId);
-    if (electionId) {
+    if (targetId === DEFAULT_ELECTION_ID) {
+      query = query.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+    } else {
       query = query.eq('election_id', targetId);
     }
     const { data, error } = await query;
@@ -1853,7 +1888,9 @@ class SupabaseDB implements IDatabaseService {
     
     const counts = await Promise.all((candidates || []).map(async (c) => {
       let query = supabase.from('votes').select('id', { count: 'exact', head: true }).eq('candidate_id', c.id);
-      if (electionId) {
+      if (targetId === DEFAULT_ELECTION_ID) {
+        query = query.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+      } else {
         query = query.eq('election_id', targetId);
       }
       const { count } = await query;
@@ -1867,7 +1904,9 @@ class SupabaseDB implements IDatabaseService {
       const t0 = performance.now();
       const targetId = electionId || DEFAULT_ELECTION_ID;
       let query = supabase.from('votes').select('id', { count: 'exact', head: true }).eq('candidate_id', candidateId);
-      if (electionId) {
+      if (targetId === DEFAULT_ELECTION_ID) {
+        query = query.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+      } else {
         query = query.eq('election_id', targetId);
       }
       const { count, error } = await query;
@@ -1916,7 +1955,9 @@ class SupabaseDB implements IDatabaseService {
       const limit = 1000;
       while (true) {
         let pageQuery = supabase.from('votes').select('student_id');
-        if (electionId) {
+        if (targetId === DEFAULT_ELECTION_ID) {
+          pageQuery = pageQuery.or(`election_id.eq.${DEFAULT_ELECTION_ID},election_id.is.null`);
+        } else {
           pageQuery = pageQuery.eq('election_id', targetId);
         }
         const { data, error } = await pageQuery.range(page * limit, (page + 1) * limit - 1);
