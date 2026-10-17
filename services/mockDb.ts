@@ -1,14 +1,16 @@
-
-import { User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, ElectionSettings, Aspirant, PaymentStatus, OutgoingExecutive, ExecutiveStatus } from '../types';
+import { 
+  User, Candidate, Vote, AuditLog, UserRole, ApprovalStatus, Position, 
+  ElectionSettings, Aspirant, PaymentStatus, OutgoingExecutive, ExecutiveStatus,
+  Election, ElectionStatus, DEFAULT_ELECTION, DEFAULT_ELECTION_ID 
+} from '../types';
 import { sendEmail } from './emailService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // --- CONFIGURATION ---
 const USE_MOCK_DB = !isSupabaseConfigured(); 
 
-// ---------------------
-
 // Constants for LocalStorage keys (Mock Mode)
+const ELECTIONS_KEY = 'univote_elections';
 const USERS_KEY = 'univote_users';
 const CANDIDATES_KEY = 'univote_candidates';
 const VOTES_KEY = 'univote_votes';
@@ -32,15 +34,15 @@ const seedAdmin: User = {
 };
 
 const seedPositions: Position[] = [
-  { name: 'President', price: 5000, eligibleLevel: 'HND II' },
-  { name: 'Vice President', price: 4000, eligibleLevel: 'HND I' },
-  { name: 'General Secretary', price: 3000, eligibleLevel: 'All' },
-  { name: 'Financial Secretary', price: 3000, eligibleLevel: 'All' },
-  { name: 'Treasurer', price: 3000, eligibleLevel: 'All' },
-  { name: 'Director of Socials', price: 2500, eligibleLevel: 'All' },
-  { name: 'P.R.O', price: 2500, eligibleLevel: 'All' },
-  { name: 'Director of Sports', price: 2500, eligibleLevel: 'All' },
-  { name: 'Director of Software', price: 2500, eligibleLevel: 'All' }
+  { name: 'President', price: 5000, eligibleLevel: 'HND II', electionId: DEFAULT_ELECTION_ID },
+  { name: 'Vice President', price: 4000, eligibleLevel: 'HND I', electionId: DEFAULT_ELECTION_ID },
+  { name: 'General Secretary', price: 3000, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID },
+  { name: 'Financial Secretary', price: 3000, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID },
+  { name: 'Treasurer', price: 3000, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID },
+  { name: 'Director of Socials', price: 2500, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID },
+  { name: 'P.R.O', price: 2500, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID },
+  { name: 'Director of Sports', price: 2500, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID },
+  { name: 'Director of Software', price: 2500, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID }
 ];
 
 const seedDepartments = [
@@ -59,7 +61,8 @@ const seedCandidates: Candidate[] = [
     department: 'Computer Science',
     position: 'President',
     manifesto: 'My vision is a NACOS that connects every student to industry opportunities. I will launch the "Code & Earn" initiative and ensure transparent dues management.',
-    photoUrl: 'https://picsum.photos/200/200?random=1'
+    photoUrl: 'https://picsum.photos/200/200?random=1',
+    electionId: DEFAULT_ELECTION_ID
   },
   {
     id: 'c-2',
@@ -68,14 +71,16 @@ const seedCandidates: Candidate[] = [
     department: 'Computer Science',
     position: 'President',
     manifesto: 'Inclusivity is key. I promise to organize more tutorials for freshers and ensure the departmental laboratory is accessible 24/7.',
-    photoUrl: 'https://picsum.photos/200/200?random=2'
+    photoUrl: 'https://picsum.photos/200/200?random=2',
+    electionId: DEFAULT_ELECTION_ID
   }
 ];
 
 const defaultSettings: ElectionSettings = {
-  startDate: new Date().toISOString().split('T')[0], // Today
-  endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
-  isVotingEnabled: true
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  isVotingEnabled: true,
+  electionId: DEFAULT_ELECTION_ID
 };
 
 const seedExecutives: OutgoingExecutive[] = [
@@ -116,20 +121,30 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 type Listener = (data?: any) => void;
 
-interface IDatabaseService {
+export interface IDatabaseService {
   subscribe(event: string, callback: Listener): () => void;
   connectToLiveUpdates(event: string, callback: Listener): () => void;
   
+  // Elections
+  getElections(): Promise<Election[]>;
+  getElection(id: string): Promise<Election | null>;
+  getActiveElection(): Promise<Election>;
+  createElection(adminId: string, data: Omit<Election, 'createdAt' | 'updatedAt'>): Promise<Election>;
+  updateElection(adminId: string, election: Partial<Election> & { id: string }): Promise<Election>;
+  deleteElection(adminId: string, electionId: string): Promise<void>;
+  archiveElection(adminId: string, electionId: string): Promise<Election>;
+  setElectionStatus(adminId: string, electionId: string, status: ElectionStatus): Promise<Election>;
+
   // Settings
-  getElectionSettings(): Promise<ElectionSettings>;
-  getElectionStats(): Promise<{
+  getElectionSettings(electionId?: string): Promise<ElectionSettings>;
+  getElectionStats(electionId?: string): Promise<{
       totalApproved: number,
       totalRejected: number,
       totalPending: number,
       totalVotesCast: number,
       distinctVoters: number
   }>;
-  updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings>;
+  updateElectionSettings(adminId: string, settings: ElectionSettings, electionId?: string): Promise<ElectionSettings>;
   
   // Departments
   getDepartments(): Promise<string[]>;
@@ -137,9 +152,9 @@ interface IDatabaseService {
   removeDepartment(adminId: string, name: string): Promise<void>;
   
   // Positions
-  getPositions(): Promise<Position[]>;
-  addPosition(adminId: string, name: string, price: number, level: string): Promise<Position>;
-  removePosition(adminId: string, name: string): Promise<void>;
+  getPositions(electionId?: string): Promise<Position[]>;
+  addPosition(adminId: string, name: string, price: number, level: string, electionId?: string): Promise<Position>;
+  removePosition(adminId: string, name: string, electionId?: string): Promise<void>;
   
   // Auth
   login(matricNo: string, password: string): Promise<User>;
@@ -147,14 +162,14 @@ interface IDatabaseService {
   getPendingUsers(): Promise<User[]>;
   processRegistration(adminId: string, userId: string, approved: boolean, reason?: string): Promise<void>;
   
-  // Aspirants (New)
-  registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant>;
+  // Aspirants
+  registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>, electionId?: string): Promise<Aspirant>;
   registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
-  }): Promise<void>;
-  getAspirants(): Promise<Aspirant[]>;
-  getMyAspirantProfile(matricNo: string): Promise<Aspirant | null>;
+  }, electionId?: string): Promise<void>;
+  getAspirants(electionId?: string): Promise<Aspirant[]>;
+  getMyAspirantProfile(matricNo: string, electionId?: string): Promise<Aspirant | null>;
   processAspirant(adminId: string, aspirantId: string, approved: boolean): Promise<void>;
   
   // Payment
@@ -162,19 +177,20 @@ interface IDatabaseService {
   verifyPayment(adminId: string, aspirantId: string): Promise<void>;
 
   // Voting
-  getCandidates(): Promise<Candidate[]>;
-  getVotingCandidates(): Promise<Candidate[]>;
-  addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate>;
-  updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate>;
-  removeCandidate(adminId: string, candidateId: string): Promise<void>;
-  castVote(studentId: string, candidateId: string, position: string): Promise<Vote>;
-  getMyVotes(studentId: string): Promise<Vote[]>;
-  getResults(): Promise<{candidateId: string, count: number}[]>;
+  getCandidates(electionId?: string): Promise<Candidate[]>;
+  getVotingCandidates(electionId?: string): Promise<Candidate[]>;
+  addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>, electionId?: string): Promise<Candidate>;
+  updateCandidate(adminId: string, candidate: Candidate, electionId?: string): Promise<Candidate>;
+  removeCandidate(adminId: string, candidateId: string, electionId?: string): Promise<void>;
+  castVote(studentId: string, candidateId: string, position: string, electionId?: string): Promise<Vote>;
+  getMyVotes(studentId: string, electionId?: string): Promise<Vote[]>;
+  getResults(electionId?: string): Promise<{candidateId: string, count: number}[]>;
+  getCandidateVoteCount(candidateId: string, electionId?: string): Promise<number>;
   
   // Analytics
-  getAuditLogs(adminId: string): Promise<AuditLog[]>;
-  getDepartmentStats(): Promise<{name: string, count: number}[]>;
-  getVoterBreakdown(): Promise<{
+  getAuditLogs(adminId: string, electionId?: string): Promise<AuditLog[]>;
+  getDepartmentStats(electionId?: string): Promise<{name: string, count: number}[]>;
+  getVoterBreakdown(electionId?: string): Promise<{
       byLevel: {name: string, count: number}[],
       byDepartment: {name: string, count: number}[]
   }>;
@@ -192,20 +208,26 @@ interface IDatabaseService {
 
 class MockDB implements IDatabaseService {
   private listeners: Record<string, Listener[]> = {};
+  private memoryStore: Record<string, string> = {};
 
   constructor() {
     this.init();
-    console.log("MockDB Initialized (Demo Mode - LocalStorage)");
+    console.log("MockDB Initialized (Demo Mode - LocalStorage with Multi-Election)");
     
     // Listen for storage events to support multi-tab real-time updates
-    window.addEventListener('storage', (event) => {
-      if (event.key === VOTES_KEY) {
-        this.emit('vote_update', null);
-      }
-      if (event.key === USERS_KEY) {
-        this.emit('user_update', null);
-      }
-    });
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event) => {
+        if (event.key === VOTES_KEY) {
+          this.emit('vote_update', null);
+        }
+        if (event.key === USERS_KEY) {
+          this.emit('user_update', null);
+        }
+        if (event.key === ELECTIONS_KEY) {
+          this.emit('election_update', null);
+        }
+      });
+    }
   }
 
   public subscribe(event: string, callback: Listener): () => void {
@@ -226,35 +248,56 @@ class MockDB implements IDatabaseService {
     }
   }
 
+  private getStorage(): { getItem: (k: string) => string | null, setItem: (k: string, v: string) => void } {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage;
+    }
+    return {
+      getItem: (k: string) => this.memoryStore[k] || null,
+      setItem: (k: string, v: string) => { this.memoryStore[k] = v; }
+    };
+  }
+
   private init() {
-    // Only init if keys are missing
     try {
-      if (!localStorage.getItem(USERS_KEY)) {
-        localStorage.setItem(USERS_KEY, JSON.stringify([seedAdmin]));
+      const storage = this.getStorage();
+      if (!storage.getItem(ELECTIONS_KEY)) {
+        storage.setItem(ELECTIONS_KEY, JSON.stringify([DEFAULT_ELECTION]));
+      } else {
+        // Ensure default baseline exists
+        const elections = this.getItems<Election>(ELECTIONS_KEY);
+        if (!elections.some(e => e.id === DEFAULT_ELECTION_ID)) {
+          elections.unshift(DEFAULT_ELECTION);
+          this.setItems(ELECTIONS_KEY, elections);
+        }
       }
-      if (!localStorage.getItem(POSITIONS_KEY)) {
-        localStorage.setItem(POSITIONS_KEY, JSON.stringify(seedPositions));
+
+      if (!storage.getItem(USERS_KEY)) {
+        storage.setItem(USERS_KEY, JSON.stringify([seedAdmin]));
       }
-      if (!localStorage.getItem(DEPARTMENTS_KEY)) {
-        localStorage.setItem(DEPARTMENTS_KEY, JSON.stringify(seedDepartments));
+      if (!storage.getItem(POSITIONS_KEY)) {
+        storage.setItem(POSITIONS_KEY, JSON.stringify(seedPositions));
       }
-      if (!localStorage.getItem(CANDIDATES_KEY)) {
-        localStorage.setItem(CANDIDATES_KEY, JSON.stringify(seedCandidates));
+      if (!storage.getItem(DEPARTMENTS_KEY)) {
+        storage.setItem(DEPARTMENTS_KEY, JSON.stringify(seedDepartments));
       }
-      if (!localStorage.getItem(VOTES_KEY)) {
-        localStorage.setItem(VOTES_KEY, JSON.stringify([]));
+      if (!storage.getItem(CANDIDATES_KEY)) {
+        storage.setItem(CANDIDATES_KEY, JSON.stringify(seedCandidates));
       }
-      if (!localStorage.getItem(AUDIT_KEY)) {
-        localStorage.setItem(AUDIT_KEY, JSON.stringify([]));
+      if (!storage.getItem(VOTES_KEY)) {
+        storage.setItem(VOTES_KEY, JSON.stringify([]));
       }
-      if (!localStorage.getItem(SETTINGS_KEY)) {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
+      if (!storage.getItem(AUDIT_KEY)) {
+        storage.setItem(AUDIT_KEY, JSON.stringify([]));
       }
-      if (!localStorage.getItem(ASPIRANTS_KEY)) {
-        localStorage.setItem(ASPIRANTS_KEY, JSON.stringify([]));
+      if (!storage.getItem(SETTINGS_KEY)) {
+        storage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
       }
-      if (!localStorage.getItem(EXECUTIVES_KEY)) {
-        localStorage.setItem(EXECUTIVES_KEY, JSON.stringify(seedExecutives));
+      if (!storage.getItem(ASPIRANTS_KEY)) {
+        storage.setItem(ASPIRANTS_KEY, JSON.stringify([]));
+      }
+      if (!storage.getItem(EXECUTIVES_KEY)) {
+        storage.setItem(EXECUTIVES_KEY, JSON.stringify(seedExecutives));
       }
     } catch (e) {
       console.warn("Could not initialize local storage (Quota exceeded?)", e);
@@ -262,13 +305,13 @@ class MockDB implements IDatabaseService {
   }
 
   private getItems<T>(key: string): T[] {
-    const item = localStorage.getItem(key);
+    const item = this.getStorage().getItem(key);
     return item ? JSON.parse(item) : [];
   }
 
   private setItems<T>(key: string, items: T[]) {
     try {
-      localStorage.setItem(key, JSON.stringify(items));
+      this.getStorage().setItem(key, JSON.stringify(items));
     } catch (e: any) {
       if (e.name === 'QuotaExceededError' || e.code === 22) {
          throw new Error("Demo storage quota exceeded. Please clear some data or use smaller images.");
@@ -278,13 +321,13 @@ class MockDB implements IDatabaseService {
   }
   
   private getItem<T>(key: string): T | null {
-    const item = localStorage.getItem(key);
+    const item = this.getStorage().getItem(key);
     return item ? JSON.parse(item) : null;
   }
 
   private setItem<T>(key: string, item: T) {
     try {
-      localStorage.setItem(key, JSON.stringify(item));
+      this.getStorage().setItem(key, JSON.stringify(item));
     } catch (e: any) {
       if (e.name === 'QuotaExceededError' || e.code === 22) {
          throw new Error("Demo storage quota exceeded.");
@@ -293,10 +336,11 @@ class MockDB implements IDatabaseService {
     }
   }
 
-  private addAudit(actorId: string, role: UserRole, action: string, details: string, targetId?: string) {
+
+  private addAudit(actorId: string, role: UserRole, action: string, details: string, targetId?: string, electionId?: string) {
     try {
         const logs = this.getItems<AuditLog>(AUDIT_KEY);
-        if (logs.length > 50) logs.pop();
+        if (logs.length > 100) logs.pop();
         
         logs.unshift({
             id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -305,6 +349,7 @@ class MockDB implements IDatabaseService {
             actionType: action,
             details,
             targetId,
+            electionId: electionId || DEFAULT_ELECTION_ID,
             timestamp: Date.now()
         });
         this.setItems(AUDIT_KEY, logs);
@@ -313,38 +358,200 @@ class MockDB implements IDatabaseService {
     }
   }
 
-  async getElectionSettings(): Promise<ElectionSettings> {
-    await delay(200);
+  // --- ELECTIONS (MockDB) ---
+  async getElections(): Promise<Election[]> {
+    await delay(150);
+    const elections = this.getItems<Election>(ELECTIONS_KEY);
+    if (!elections || elections.length === 0) {
+      this.setItems(ELECTIONS_KEY, [DEFAULT_ELECTION]);
+      return [DEFAULT_ELECTION];
+    }
+    return elections;
+  }
+
+  async getElection(id: string): Promise<Election | null> {
+    const elections = await this.getElections();
+    return elections.find(e => e.id === id) || null;
+  }
+
+  async getActiveElection(): Promise<Election> {
+    const elections = await this.getElections();
+    const live = elections.find(e => e.status === 'live');
+    if (live) return live;
+    const scheduled = elections.find(e => e.status === 'scheduled');
+    if (scheduled) return scheduled;
+    return elections[0] || DEFAULT_ELECTION;
+  }
+
+  async createElection(adminId: string, data: Omit<Election, 'createdAt' | 'updatedAt'>): Promise<Election> {
+    await delay(300);
+    const elections = await this.getElections();
+    if (elections.some(e => e.id === data.id)) {
+      throw new Error(`Election with ID "${data.id}" already exists.`);
+    }
+
+    const newElection: Election = {
+      ...data,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      createdBy: adminId
+    };
+
+    // If new election is set to live, close any previously live election
+    if (newElection.status === 'live') {
+      elections.forEach(e => {
+        if (e.status === 'live') {
+          e.status = 'closed';
+          e.updatedAt = Date.now();
+        }
+      });
+    }
+
+    elections.unshift(newElection);
+    this.setItems(ELECTIONS_KEY, elections);
+    this.addAudit(adminId, UserRole.ADMIN, 'election_created', `Created election: ${newElection.title}`, newElection.id, newElection.id);
+    this.emit('election_update', newElection);
+    return newElection;
+  }
+
+  async updateElection(adminId: string, election: Partial<Election> & { id: string }): Promise<Election> {
+    await delay(250);
+    const elections = await this.getElections();
+    const idx = elections.findIndex(e => e.id === election.id);
+    if (idx === -1) throw new Error("Election not found");
+
+    if (election.status === 'live' && elections[idx].status !== 'live') {
+      elections.forEach(e => {
+        if (e.id !== election.id && e.status === 'live') {
+          e.status = 'closed';
+          e.updatedAt = Date.now();
+        }
+      });
+    }
+
+    const updated: Election = {
+      ...elections[idx],
+      ...election,
+      updatedAt: Date.now()
+    };
+    elections[idx] = updated;
+    this.setItems(ELECTIONS_KEY, elections);
+    this.addAudit(adminId, UserRole.ADMIN, 'election_updated', `Updated election: ${updated.title}`, updated.id, updated.id);
+    this.emit('election_update', updated);
+    return updated;
+  }
+
+  async deleteElection(adminId: string, electionId: string): Promise<void> {
+    await delay(250);
+    // CRITICAL SAFETY CHECK: Cannot delete election containing votes!
+    const votes = this.getItems<Vote>(VOTES_KEY);
+    const hasVotes = votes.some(v => (v.electionId || DEFAULT_ELECTION_ID) === electionId);
+    if (hasVotes) {
+      throw new Error("Cannot delete election containing vote records. Please archive the election instead to preserve the permanent audit trail.");
+    }
+    if (electionId === DEFAULT_ELECTION_ID) {
+      throw new Error("Cannot delete the primary live NACOS election record. It can only be archived.");
+    }
+
+    let elections = await this.getElections();
+    const target = elections.find(e => e.id === electionId);
+    elections = elections.filter(e => e.id !== electionId);
+    this.setItems(ELECTIONS_KEY, elections);
+
+    // Clean up draft positions and candidates belonging to this election
+    let candidates = this.getItems<Candidate>(CANDIDATES_KEY);
+    candidates = candidates.filter(c => (c.electionId || DEFAULT_ELECTION_ID) !== electionId);
+    this.setItems(CANDIDATES_KEY, candidates);
+
+    let positions = this.getItems<Position>(POSITIONS_KEY);
+    positions = positions.filter(p => (p.electionId || DEFAULT_ELECTION_ID) !== electionId);
+    this.setItems(POSITIONS_KEY, positions);
+
+    this.addAudit(adminId, UserRole.ADMIN, 'election_deleted', `Deleted draft election: ${target?.title || electionId}`, electionId, electionId);
+    this.emit('election_update', null);
+  }
+
+  async archiveElection(adminId: string, electionId: string): Promise<Election> {
+    return this.setElectionStatus(adminId, electionId, 'archived');
+  }
+
+  async setElectionStatus(adminId: string, electionId: string, status: ElectionStatus): Promise<Election> {
+    return this.updateElection(adminId, { 
+      id: electionId, 
+      status,
+      isVotingEnabled: status === 'live'
+    });
+  }
+
+  // --- SETTINGS & STATS ---
+  async getElectionSettings(electionId?: string): Promise<ElectionSettings> {
+    await delay(150);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    const elections = this.getItems<Election>(ELECTIONS_KEY);
+    const election = elections.find(e => e.id === targetElectionId);
+    if (election) {
+      return {
+        startDate: election.startDate,
+        endDate: election.endDate,
+        isVotingEnabled: election.status === 'live' && election.isVotingEnabled,
+        electionId: election.id
+      };
+    }
     return this.getItem<ElectionSettings>(SETTINGS_KEY) || defaultSettings;
   }
 
-  async getElectionStats(): Promise<{
+  async getElectionStats(electionId?: string): Promise<{
       totalApproved: number,
       totalRejected: number,
       totalPending: number,
       totalVotesCast: number,
       distinctVoters: number
   }> {
-    await delay(200);
+    await delay(150);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
     const users = this.getItems<User>(USERS_KEY).filter(u => u.role === 'student');
-    const votes = this.getItems<Vote>(VOTES_KEY);
-    const totalApproved = users.filter(u => u.status === 'approved').length;
-    const totalRejected = users.filter(u => u.status === 'rejected').length;
-    const totalPending = users.filter(u => u.status === 'pending' || !u.status).length;
+    const votes = this.getItems<Vote>(VOTES_KEY).filter(v => (v.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
+
+    // Scoped eligibility filtering if configured
+    const elections = this.getItems<Election>(ELECTIONS_KEY);
+    const currentElection = elections.find(e => e.id === targetElectionId);
+    let eligibleUsers = users;
+    if (currentElection?.eligibleLevels && !currentElection.eligibleLevels.includes('All')) {
+      eligibleUsers = eligibleUsers.filter(u => u.level && currentElection.eligibleLevels!.includes(u.level));
+    }
+    if (currentElection?.eligibleDepartments && !currentElection.eligibleDepartments.includes('All')) {
+      eligibleUsers = eligibleUsers.filter(u => u.department && currentElection.eligibleDepartments!.includes(u.department));
+    }
+
+    const totalApproved = eligibleUsers.filter(u => u.status === 'approved').length;
+    const totalRejected = eligibleUsers.filter(u => u.status === 'rejected').length;
+    const totalPending = eligibleUsers.filter(u => u.status === 'pending' || !u.status).length;
     const totalVotesCast = votes.length;
-    const approvedUserIds = new Set(users.filter(u => u.status === 'approved').map(u => u.id));
+    const approvedUserIds = new Set(eligibleUsers.filter(u => u.status === 'approved').map(u => u.id));
     const distinctVoters = new Set(votes.map(v => v.studentId).filter(id => approvedUserIds.has(id))).size;
     return { totalApproved, totalRejected, totalPending, totalVotesCast, distinctVoters };
   }
 
-  async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {
-    await delay(300);
+  async updateElectionSettings(adminId: string, settings: ElectionSettings, electionId?: string): Promise<ElectionSettings> {
+    await delay(200);
+    const targetElectionId = electionId || settings.electionId || DEFAULT_ELECTION_ID;
     this.setItem(SETTINGS_KEY, settings);
+
+    const elections = this.getItems<Election>(ELECTIONS_KEY);
+    const idx = elections.findIndex(e => e.id === targetElectionId);
+    if (idx !== -1) {
+      elections[idx].startDate = settings.startDate;
+      elections[idx].endDate = settings.endDate;
+      elections[idx].isVotingEnabled = settings.isVotingEnabled;
+      elections[idx].updatedAt = Date.now();
+      this.setItems(ELECTIONS_KEY, elections);
+    }
     return settings;
   }
 
+  // --- DEPARTMENTS ---
   async getDepartments(): Promise<string[]> {
-    await delay(200);
+    await delay(150);
     return this.getItems<string>(DEPARTMENTS_KEY);
   }
 
@@ -362,48 +569,55 @@ class MockDB implements IDatabaseService {
     this.setItems(DEPARTMENTS_KEY, depts);
   }
 
-  async getPositions(): Promise<Position[]> {
-    await delay(200);
+  // --- POSITIONS ---
+  async getPositions(electionId?: string): Promise<Position[]> {
+    await delay(150);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
     const pos = this.getItems<any>(POSITIONS_KEY);
-    // Backward compatibility check for string array
     if (pos.length > 0 && typeof pos[0] === 'string') {
-        return pos.map((p: string) => ({ name: p, price: 0, eligibleLevel: 'All' }));
+        return pos.map((p: string) => ({ name: p, price: 0, eligibleLevel: 'All', electionId: DEFAULT_ELECTION_ID }));
     }
-    return pos;
+    return (pos as Position[]).filter(p => (p.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
   }
 
-  async addPosition(adminId: string, name: string, price: number, level: string): Promise<Position> {
+  async addPosition(adminId: string, name: string, price: number, level: string, electionId?: string): Promise<Position> {
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
     const positions = this.getItems<Position>(POSITIONS_KEY);
-    if (positions.some(p => p.name === name)) throw new Error("Position already exists");
-    const newPos = { name, price, eligibleLevel: level };
+    if (positions.some(p => p.name.toLowerCase() === name.toLowerCase() && (p.electionId || DEFAULT_ELECTION_ID) === targetElectionId)) {
+      throw new Error(`Position "${name}" already exists in this election`);
+    }
+    const newPos: Position = { id: `pos-${Date.now()}`, name, price, eligibleLevel: level, electionId: targetElectionId };
     positions.push(newPos);
     this.setItems(POSITIONS_KEY, positions);
+    this.addAudit(adminId, UserRole.ADMIN, 'position_added', `Added position ${name} to election`, newPos.id, targetElectionId);
     return newPos;
   }
 
-  async removePosition(adminId: string, name: string): Promise<void> {
+  async removePosition(adminId: string, name: string, electionId?: string): Promise<void> {
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
     let positions = this.getItems<Position>(POSITIONS_KEY);
-    positions = positions.filter(p => p.name !== name);
+    positions = positions.filter(p => !(p.name === name && (p.electionId || DEFAULT_ELECTION_ID) === targetElectionId));
     this.setItems(POSITIONS_KEY, positions);
+    this.addAudit(adminId, UserRole.ADMIN, 'position_removed', `Removed position ${name} from election`, undefined, targetElectionId);
   }
 
+  // --- AUTH ---
   async login(matricNo: string, password: string): Promise<User> {
-    await delay(500);
+    await delay(400);
     const users = this.getItems<User>(USERS_KEY);
     const user = users.find(u => u.matricNo === matricNo && u.passwordHash === password);
     
     if (!user) throw new Error('Invalid credentials');
     
     if (user.role === UserRole.STUDENT && user.status !== ApprovalStatus.APPROVED) {
-        if(user.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${user.rejectionReason}`);
+        if (user.status === ApprovalStatus.REJECTED) throw new Error(`Registration rejected: ${user.rejectionReason}`);
         throw new Error('Account pending approval');
     }
-
     return user;
   }
 
   async register(data: Omit<User, 'id' | 'role' | 'status' | 'createdAt'>): Promise<User> {
-    await delay(800);
+    await delay(500);
     const users = this.getItems<User>(USERS_KEY);
     const existingIndex = users.findIndex(u => u.matricNo === data.matricNo);
     
@@ -437,9 +651,8 @@ class MockDB implements IDatabaseService {
       role: UserRole.STUDENT,
       status: ApprovalStatus.PENDING,
       createdAt: Date.now(),
-      idCardUrl: data.idCardUrl || 'https://picsum.photos/400/300?grayscale' 
+      idCardUrl: data.idCardUrl || 'https://picsum.photos/400/300?grayscale'
     };
-
     users.push(newUser);
     this.setItems(USERS_KEY, users);
     
@@ -449,48 +662,49 @@ class MockDB implements IDatabaseService {
   }
 
   async getPendingUsers(): Promise<User[]> {
-    await delay(300);
+    await delay(200);
     return this.getItems<User>(USERS_KEY).filter(u => u.status === ApprovalStatus.PENDING);
   }
 
   async processRegistration(adminId: string, userId: string, approved: boolean, reason?: string): Promise<void> {
-    await delay(500);
+    await delay(300);
     const users = this.getItems<User>(USERS_KEY);
     const idx = users.findIndex(u => u.id === userId);
     if (idx === -1) throw new Error('User not found');
-
     const user = users[idx];
     user.status = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
     if (!approved && reason) user.rejectionReason = reason;
-
     this.setItems(USERS_KEY, users);
     this.addAudit(adminId, UserRole.ADMIN, approved ? 'registration_approved' : 'registration_rejected', `User ${user.matricNo} processed`, userId);
     this.emit('user_update', user);
   }
 
-  // --- ASPIRANT METHODS ---
-  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant> {
-    await delay(800);
+  // --- ASPIRANTS ---
+  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>, electionId?: string): Promise<Aspirant> {
+    await delay(500);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
     const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
-    if (aspirants.some(a => a.matricNo === data.matricNo)) throw new Error('You have already applied.');
-
+    if (aspirants.some(a => a.matricNo === data.matricNo && (a.electionId || DEFAULT_ELECTION_ID) === targetElectionId)) {
+      throw new Error('You have already applied for this election.');
+    }
     const newAspirant: Aspirant = {
         ...data,
         id: `asp-${Date.now()}`,
+        electionId: targetElectionId,
         status: ApprovalStatus.PENDING,
         paymentStatus: PaymentStatus.UNPAID,
         createdAt: Date.now()
     };
     aspirants.push(newAspirant);
     this.setItems(ASPIRANTS_KEY, aspirants);
-    this.addAudit('system', UserRole.GUEST, 'aspirant_applied', `New aspirant: ${data.fullName}`, newAspirant.id);
+    this.addAudit('system', UserRole.GUEST, 'aspirant_applied', `New aspirant: ${data.fullName}`, newAspirant.id, targetElectionId);
     return newAspirant;
   }
 
   async registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
-  }): Promise<void> {
+  }, electionId?: string): Promise<void> {
       await this.register({
           fullName: data.fullName,
           matricNo: data.matricNo,
@@ -512,16 +726,19 @@ class MockDB implements IDatabaseService {
           resultUrl: data.resultUrl,
           address: data.address,
           phone: data.phone
-      });
+      }, electionId);
   }
 
-  async getAspirants(): Promise<Aspirant[]> {
-    return this.getItems<Aspirant>(ASPIRANTS_KEY);
-  }
-
-  async getMyAspirantProfile(matricNo: string): Promise<Aspirant | null> {
+  async getAspirants(electionId?: string): Promise<Aspirant[]> {
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
     const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
-    return aspirants.find(a => a.matricNo === matricNo) || null;
+    return aspirants.filter(a => (a.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
+  }
+
+  async getMyAspirantProfile(matricNo: string, electionId?: string): Promise<Aspirant | null> {
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
+    return aspirants.find(a => a.matricNo === matricNo && (a.electionId || DEFAULT_ELECTION_ID) === targetElectionId) || null;
   }
 
   async markPaymentAsPending(aspirantId: string, receiptBase64?: string): Promise<void> {
@@ -542,7 +759,7 @@ class MockDB implements IDatabaseService {
       if (idx !== -1) {
           aspirants[idx].paymentStatus = PaymentStatus.PAID;
           this.setItems(ASPIRANTS_KEY, aspirants);
-          this.addAudit(adminId, UserRole.ADMIN, 'payment_verified', `Payment verified for ${aspirants[idx].fullName}`, aspirantId);
+          this.addAudit(adminId, UserRole.ADMIN, 'payment_verified', `Payment verified for ${aspirants[idx].fullName}`, aspirantId, aspirants[idx].electionId);
       }
   }
 
@@ -550,23 +767,20 @@ class MockDB implements IDatabaseService {
     const aspirants = this.getItems<Aspirant>(ASPIRANTS_KEY);
     const idx = aspirants.findIndex(a => a.id === aspirantId);
     if (idx === -1) throw new Error("Aspirant not found");
-
     const aspirant = aspirants[idx];
+    const electionId = aspirant.electionId || DEFAULT_ELECTION_ID;
     
-    // Check duplication in Candidates logic before processing
     if (approved) {
         if (aspirant.paymentStatus !== PaymentStatus.PAID) {
             throw new Error("Cannot approve aspirant. Payment has not been verified.");
         }
         
-        // Prevent re-approval if already active candidate
         const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
-        if (candidates.some(c => c.matricNo === aspirant.matricNo)) {
-             aspirant.status = ApprovalStatus.APPROVED; // Sync status if missed
+        if (candidates.some(c => c.matricNo === aspirant.matricNo && (c.electionId || DEFAULT_ELECTION_ID) === electionId)) {
+             aspirant.status = ApprovalStatus.APPROVED;
              this.setItems(ASPIRANTS_KEY, aspirants);
-             return; // Already processed
+             return;
         }
-
         aspirant.status = ApprovalStatus.APPROVED;
         
         await this.addCandidate(adminId, {
@@ -578,8 +792,9 @@ class MockDB implements IDatabaseService {
             photoUrl: aspirant.passportUrl,
             level: aspirant.level,
             cgpa: aspirant.cgpa,
-            resultUrl: aspirant.resultUrl
-        });
+            resultUrl: aspirant.resultUrl,
+            electionId
+        }, electionId);
 
         const users = this.getItems<User>(USERS_KEY);
         const uIdx = users.findIndex(u => u.matricNo === aspirant.matricNo);
@@ -587,25 +802,27 @@ class MockDB implements IDatabaseService {
             users[uIdx].status = ApprovalStatus.APPROVED;
             this.setItems(USERS_KEY, users);
         }
-
-        this.addAudit(adminId, UserRole.ADMIN, 'aspirant_approved', `Promoted ${aspirant.fullName} to Candidate`, aspirantId);
+        this.addAudit(adminId, UserRole.ADMIN, 'aspirant_approved', `Promoted ${aspirant.fullName} to Candidate`, aspirantId, electionId);
     } else {
         aspirant.status = ApprovalStatus.REJECTED;
-        this.addAudit(adminId, UserRole.ADMIN, 'aspirant_rejected', `Rejected aspirant ${aspirant.fullName}`, aspirantId);
+        this.addAudit(adminId, UserRole.ADMIN, 'aspirant_rejected', `Rejected aspirant ${aspirant.fullName}`, aspirantId, electionId);
     }
     
     this.setItems(ASPIRANTS_KEY, aspirants);
   }
 
-  async getCandidates(): Promise<Candidate[]> {
-    await delay(300);
-    return this.getItems<Candidate>(CANDIDATES_KEY);
+  // --- CANDIDATES & VOTING ---
+  async getCandidates(electionId?: string): Promise<Candidate[]> {
+    await delay(200);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
+    return candidates.filter(c => (c.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
   }
 
-  async getVotingCandidates(): Promise<Candidate[]> {
-    await delay(300);
-    const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
-    // For voting, we don't need heavy fields like resultUrl
+  async getVotingCandidates(electionId?: string): Promise<Candidate[]> {
+    await delay(200);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    const candidates = await this.getCandidates(targetElectionId);
     return candidates.map(c => ({
       id: c.id,
       name: c.name,
@@ -614,105 +831,146 @@ class MockDB implements IDatabaseService {
       position: c.position,
       manifesto: c.manifesto || '',
       photoUrl: c.photoUrl || '',
-      level: c.level
+      level: c.level,
+      electionId: c.electionId || targetElectionId
     }));
   }
 
-  async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
+  async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>, electionId?: string): Promise<Candidate> {
+      const targetElectionId = electionId || candidate.electionId || DEFAULT_ELECTION_ID;
       const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
       
-      // Prevent duplicates
-      if (candidates.some(c => c.matricNo === candidate.matricNo)) {
-          throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists.`);
+      if (candidates.some(c => c.matricNo === candidate.matricNo && (c.electionId || DEFAULT_ELECTION_ID) === targetElectionId)) {
+          throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists in this election.`);
       }
-
-      const newCand = { ...candidate, id: `c-${Date.now()}` };
+      const newCand = { ...candidate, id: `c-${Date.now()}`, electionId: targetElectionId };
       candidates.push(newCand);
       this.setItems(CANDIDATES_KEY, candidates);
+      this.addAudit(adminId, UserRole.ADMIN, 'candidate_added', `Added candidate ${candidate.name}`, newCand.id, targetElectionId);
       return newCand;
   }
 
-  async updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate> {
+  async updateCandidate(adminId: string, candidate: Candidate, electionId?: string): Promise<Candidate> {
+    const targetElectionId = electionId || candidate.electionId || DEFAULT_ELECTION_ID;
     const candidates = this.getItems<Candidate>(CANDIDATES_KEY);
     const index = candidates.findIndex(c => c.id === candidate.id);
     if (index === -1) throw new Error('Candidate not found');
-
-    candidates[index] = candidate;
+    candidates[index] = { ...candidate, electionId: targetElectionId };
     this.setItems(CANDIDATES_KEY, candidates);
-    return candidate;
+    this.addAudit(adminId, UserRole.ADMIN, 'candidate_updated', `Updated candidate ${candidate.name}`, candidate.id, targetElectionId);
+    return candidates[index];
   }
 
-  async removeCandidate(adminId: string, candidateId: string): Promise<void> {
+  async removeCandidate(adminId: string, candidateId: string, electionId?: string): Promise<void> {
       let candidates = this.getItems<Candidate>(CANDIDATES_KEY);
+      const target = candidates.find(c => c.id === candidateId);
       candidates = candidates.filter(c => c.id !== candidateId);
       this.setItems(CANDIDATES_KEY, candidates);
+      this.addAudit(adminId, UserRole.ADMIN, 'candidate_removed', `Removed candidate ${target?.name || candidateId}`, candidateId, target?.electionId || electionId);
   }
 
-  async castVote(studentId: string, candidateId: string, position: string): Promise<Vote> {
-    await delay(600);
-    const settings = await this.getElectionSettings();
+  async castVote(studentId: string, candidateId: string, position: string, electionId?: string): Promise<Vote> {
+    await delay(400);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    const election = await this.getElection(targetElectionId);
+    if (!election) throw new Error("Election not found");
+    if (election.status !== 'live' || !election.isVotingEnabled) {
+      throw new Error(`Voting is currently closed for "${election.title}".`);
+    }
     const now = new Date();
-    if (!settings.isVotingEnabled || now < new Date(settings.startDate) || now > new Date(settings.endDate + 'T23:59:59')) {
-      throw new Error("Voting is currently closed or outside the scheduled time.");
+    if (now < new Date(election.startDate) || now > new Date(election.endDate + 'T23:59:59')) {
+      throw new Error("Voting is outside the scheduled election timeframe.");
+    }
+
+    // Voter verification
+    const users = this.getItems<User>(USERS_KEY);
+    const student = users.find(u => u.id === studentId);
+    if (!student || student.status !== ApprovalStatus.APPROVED) {
+      throw new Error("Only approved registered students are eligible to vote.");
+    }
+
+    // Eligibility check
+    if (election.eligibleLevels && !election.eligibleLevels.includes('All') && student.level) {
+      if (!election.eligibleLevels.includes(student.level)) {
+        throw new Error(`Your level (${student.level}) is not eligible to vote in this election.`);
+      }
+    }
+    if (election.eligibleDepartments && !election.eligibleDepartments.includes('All') && student.department) {
+      if (!election.eligibleDepartments.includes(student.department)) {
+        throw new Error(`Your department (${student.department}) is not eligible to vote in this election.`);
+      }
     }
 
     const votes = this.getItems<Vote>(VOTES_KEY);
-    if (votes.some(v => v.studentId === studentId && v.position === position)) throw new Error(`Already voted for ${position}`);
+    if (votes.some(v => v.studentId === studentId && v.position === position && (v.electionId || DEFAULT_ELECTION_ID) === targetElectionId)) {
+      throw new Error(`Already voted for ${position} in this election`);
+    }
 
     const newVote: Vote = {
       id: `v-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      studentId, candidateId, position, timestamp: Date.now()
+      studentId, 
+      candidateId, 
+      position, 
+      electionId: targetElectionId,
+      timestamp: Date.now()
     };
     votes.push(newVote);
     this.setItems(VOTES_KEY, votes);
-    this.addAudit(studentId, UserRole.STUDENT, 'vote_cast', `Voted for ${position}`, newVote.id);
+    this.addAudit(studentId, UserRole.STUDENT, 'vote_cast', `Voted for ${position} in ${election.title}`, newVote.id, targetElectionId);
     this.emit('vote_update', newVote);
     return newVote;
   }
 
-  async getMyVotes(studentId: string): Promise<Vote[]> {
-    await delay(300);
-    return this.getItems<Vote>(VOTES_KEY).filter(v => v.studentId === studentId);
+  async getMyVotes(studentId: string, electionId?: string): Promise<Vote[]> {
+    await delay(200);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    return this.getItems<Vote>(VOTES_KEY).filter(v => v.studentId === studentId && (v.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
   }
 
-  async getResults(): Promise<{candidateId: string, count: number}[]> {
-    await delay(300);
-    const votes = this.getItems<Vote>(VOTES_KEY);
+  async getResults(electionId?: string): Promise<{candidateId: string, count: number}[]> {
+    await delay(200);
+    const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+    const candidates = await this.getCandidates(targetElectionId);
+    const votes = this.getItems<Vote>(VOTES_KEY).filter(v => (v.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
     const counts: Record<string, number> = {};
+    candidates.forEach(c => { counts[c.id] = 0; });
     votes.forEach(v => { counts[v.candidateId] = (counts[v.candidateId] || 0) + 1; });
     return Object.entries(counts).map(([candidateId, count]) => ({ candidateId, count }));
   }
 
-  async getCandidateVoteCount(candidateId: string): Promise<number> {
-      await delay(300);
-      const votes = this.getItems<Vote>(VOTES_KEY);
+  async getCandidateVoteCount(candidateId: string, electionId?: string): Promise<number> {
+      await delay(200);
+      const targetElectionId = electionId || DEFAULT_ELECTION_ID;
+      const votes = this.getItems<Vote>(VOTES_KEY).filter(v => (v.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
       return votes.filter(v => v.candidateId === candidateId).length;
   }
 
-  async getAuditLogs(adminId: string): Promise<AuditLog[]> {
-      return this.getItems<AuditLog>(AUDIT_KEY);
+  async getAuditLogs(adminId: string, electionId?: string): Promise<AuditLog[]> {
+      const logs = this.getItems<AuditLog>(AUDIT_KEY);
+      if (!electionId) return logs;
+      return logs.filter(l => !l.electionId || l.electionId === electionId);
   }
 
-  async getDepartmentStats(): Promise<{name: string, count: number}[]> {
-    await delay(300);
+  async getDepartmentStats(electionId?: string): Promise<{name: string, count: number}[]> {
+    await delay(200);
     const users = this.getItems<User>(USERS_KEY).filter(u => u.role === UserRole.STUDENT);
     const counts: Record<string, number> = {};
     users.forEach(u => { counts[u.department] = (counts[u.department] || 0) + 1; });
     return Object.entries(counts).map(([name, count]) => ({ name, count }));
   }
 
-  async getVoterBreakdown(): Promise<{
+  async getVoterBreakdown(electionId?: string): Promise<{
       byLevel: {name: string, count: number}[],
       byDepartment: {name: string, count: number}[]
   }> {
-      await delay(300);
+      await delay(200);
+      const targetElectionId = electionId || DEFAULT_ELECTION_ID;
       const users = this.getItems<User>(USERS_KEY);
-      const votes = this.getItems<Vote>(VOTES_KEY);
+      const votes = this.getItems<Vote>(VOTES_KEY).filter(v => (v.electionId || DEFAULT_ELECTION_ID) === targetElectionId);
       const votingStudentIds = new Set(votes.map(v => v.studentId));
       
       const levelCounts: Record<string, number> = {};
       const deptCounts: Record<string, number> = {};
-
       users.forEach(u => {
           if (votingStudentIds.has(u.id)) {
               const level = u.level || 'Unknown';
@@ -729,7 +987,7 @@ class MockDB implements IDatabaseService {
 
   // --- OUTGOING EXECUTIVES ---
   async getOutgoingExecutives(): Promise<OutgoingExecutive[]> {
-      await delay(300);
+      await delay(200);
       return this.getItems<OutgoingExecutive>(EXECUTIVES_KEY);
   }
 
@@ -769,12 +1027,12 @@ function logPerfMetrics(fnName: string, durationMs: number, data: any) {
 }
 
 // ----------------------------------------------------------------------
-// 2. SUPABASE DB (Real Production Database)
+// 2. SUPABASE DB (Real Production Database with Graceful Fallbacks)
 // ----------------------------------------------------------------------
 
 class SupabaseDB implements IDatabaseService {
   constructor() {
-    console.log("SupabaseDB Initialized (Production Mode)");
+    console.log("SupabaseDB Initialized (Production Mode with Multi-Election Scoping)");
   }
 
   public subscribe(event: string, callback: Listener): () => void {
@@ -803,18 +1061,205 @@ class SupabaseDB implements IDatabaseService {
     return this.subscribe(event, callback);
   }
 
-  async getElectionSettings(): Promise<ElectionSettings> {
+  // --- ELECTIONS (Supabase) ---
+  async getElections(): Promise<Election[]> {
+    try {
+      const { data, error } = await supabase
+        .from('elections')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        return [DEFAULT_ELECTION];
+      }
+
+      return data.map(this.mapElection);
+    } catch (e) {
+      console.warn("Using fallback default election:", e);
+      return [DEFAULT_ELECTION];
+    }
+  }
+
+  async getElection(id: string): Promise<Election | null> {
+    try {
+      const { data, error } = await supabase
+        .from('elections')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error || !data) {
+        if (id === DEFAULT_ELECTION_ID) return DEFAULT_ELECTION;
+        return null;
+      }
+      return this.mapElection(data);
+    } catch {
+      if (id === DEFAULT_ELECTION_ID) return DEFAULT_ELECTION;
+      return null;
+    }
+  }
+
+  async getActiveElection(): Promise<Election> {
+    try {
+      const { data, error } = await supabase
+        .from('elections')
+        .select('*')
+        .eq('status', 'live')
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return this.mapElection(data);
+      }
+    } catch (e) {
+      console.warn("Could not query live election:", e);
+    }
+    return DEFAULT_ELECTION;
+  }
+
+  async createElection(adminId: string, data: Omit<Election, 'createdAt' | 'updatedAt'>): Promise<Election> {
+    const payload = {
+      id: data.id,
+      title: data.title,
+      session: data.session,
+      description: data.description,
+      start_date: data.startDate,
+      end_date: data.endDate,
+      status: data.status,
+      is_voting_enabled: data.isVotingEnabled,
+      eligible_levels: data.eligibleLevels || ['All'],
+      eligible_departments: data.eligibleDepartments || ['All'],
+      aspirant_registration_open: data.aspirantRegistrationOpen ?? true,
+      aspirant_fee_required: data.aspirantFeeRequired ?? true,
+      created_by: adminId,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    };
+
+    // If live, close others
+    if (data.status === 'live') {
+      try {
+        await supabase.from('elections').update({ status: 'closed', updated_at: Date.now() }).eq('status', 'live');
+      } catch (err) {
+        console.warn("Error updating active election status:", err);
+      }
+    }
+
+    const { data: inserted, error } = await supabase.from('elections').insert(payload).select().single();
+    if (error) {
+      throw new Error(`Database Error: ${error.message}. (Ensure multi_election_schema.sql has been executed).`);
+    }
+
+    this.logAudit(adminId, UserRole.ADMIN, 'election_created', `Created election ${data.title}`, data.id);
+    return this.mapElection(inserted);
+  }
+
+  async updateElection(adminId: string, election: Partial<Election> & { id: string }): Promise<Election> {
+    const payload: any = { updated_at: Date.now() };
+    if (election.title !== undefined) payload.title = election.title;
+    if (election.session !== undefined) payload.session = election.session;
+    if (election.description !== undefined) payload.description = election.description;
+    if (election.startDate !== undefined) payload.start_date = election.startDate;
+    if (election.endDate !== undefined) payload.end_date = election.endDate;
+    if (election.status !== undefined) payload.status = election.status;
+    if (election.isVotingEnabled !== undefined) payload.is_voting_enabled = election.isVotingEnabled;
+    if (election.eligibleLevels !== undefined) payload.eligible_levels = election.eligibleLevels;
+    if (election.eligibleDepartments !== undefined) payload.eligible_departments = election.eligibleDepartments;
+    if (election.aspirantRegistrationOpen !== undefined) payload.aspirant_registration_open = election.aspirantRegistrationOpen;
+    if (election.aspirantFeeRequired !== undefined) payload.aspirant_fee_required = election.aspirantFeeRequired;
+
+    if (election.status === 'live') {
+      await supabase.from('elections').update({ status: 'closed', updated_at: Date.now() }).eq('status', 'live').neq('id', election.id);
+    }
+
+    const { data, error } = await supabase.from('elections').update(payload).eq('id', election.id).select().single();
+    if (error) throw new Error(error.message);
+
+    this.logAudit(adminId, UserRole.ADMIN, 'election_updated', `Updated election ${election.title || election.id}`, election.id);
+    return this.mapElection(data);
+  }
+
+  async deleteElection(adminId: string, electionId: string): Promise<void> {
+    // CRITICAL SAFETY CHECK: Cannot delete election containing votes!
+    try {
+      const { count } = await supabase
+        .from('votes')
+        .select('id', { count: 'exact', head: true })
+        .eq('election_id', electionId);
+
+      if (count && count > 0) {
+        throw new Error("Cannot delete election containing vote records. Please archive the election instead to preserve the permanent audit trail.");
+      }
+    } catch (e: any) {
+      if (e.message && e.message.includes("Cannot delete")) throw e;
+    }
+
+    if (electionId === DEFAULT_ELECTION_ID) {
+      throw new Error("Cannot delete the primary live NACOS election record. It can only be archived.");
+    }
+
+    await supabase.from('elections').delete().eq('id', electionId);
+    this.logAudit(adminId, UserRole.ADMIN, 'election_deleted', `Deleted draft election ${electionId}`);
+  }
+
+  async archiveElection(adminId: string, electionId: string): Promise<Election> {
+    return this.setElectionStatus(adminId, electionId, 'archived');
+  }
+
+  async setElectionStatus(adminId: string, electionId: string, status: ElectionStatus): Promise<Election> {
+    return this.updateElection(adminId, { 
+      id: electionId, 
+      status,
+      isVotingEnabled: status === 'live'
+    });
+  }
+
+  private mapElection(e: any): Election {
+    return {
+      id: e.id,
+      title: e.title,
+      session: e.session,
+      description: e.description || '',
+      startDate: e.start_date,
+      endDate: e.end_date,
+      status: e.status,
+      isVotingEnabled: !!e.is_voting_enabled,
+      eligibleLevels: e.eligible_levels || ['All'],
+      eligibleDepartments: e.eligible_departments || ['All'],
+      aspirantRegistrationOpen: e.aspirant_registration_open !== false,
+      aspirantFeeRequired: e.aspirant_fee_required !== false,
+      createdAt: Number(e.created_at) || Date.now(),
+      updatedAt: Number(e.updated_at) || Date.now(),
+      createdBy: e.created_by
+    };
+  }
+
+  // --- SETTINGS & STATS ---
+  async getElectionSettings(electionId?: string): Promise<ElectionSettings> {
     const t0 = performance.now();
     try {
-      const { data, error } = await supabase.from('settings').select('*').single();
-      if (error) {
-        logPerfMetrics('getElectionSettings', performance.now() - t0, defaultSettings);
+      const targetId = electionId || DEFAULT_ELECTION_ID;
+      const { data, error } = await supabase.from('settings').select('*').eq('election_id', targetId).maybeSingle();
+      if (error || !data) {
+        // Try single row without election_id filter
+        const { data: baseData } = await supabase.from('settings').select('*').limit(1).maybeSingle();
+        if (baseData) {
+          const mapped = {
+            startDate: baseData.start_date,
+            endDate: baseData.end_date,
+            isVotingEnabled: baseData.is_voting_enabled,
+            electionId: targetId
+          };
+          logPerfMetrics('getElectionSettings', performance.now() - t0, mapped);
+          return mapped;
+        }
         return defaultSettings;
       }
       const mapped = {
         startDate: data.start_date,
         endDate: data.end_date,
-        isVotingEnabled: data.is_voting_enabled
+        isVotingEnabled: data.is_voting_enabled,
+        electionId: data.election_id || targetId
       };
       logPerfMetrics('getElectionSettings', performance.now() - t0, mapped);
       return mapped;
@@ -825,7 +1270,7 @@ class SupabaseDB implements IDatabaseService {
     }
   }
 
-  async getElectionStats(): Promise<{
+  async getElectionStats(electionId?: string): Promise<{
       totalApproved: number,
       totalRejected: number,
       totalPending: number,
@@ -833,21 +1278,28 @@ class SupabaseDB implements IDatabaseService {
       distinctVoters: number
   }> {
       const t0 = performance.now();
+      const targetId = electionId || DEFAULT_ELECTION_ID;
       
       const pApproved = supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'approved');
       const pRejected = supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'rejected');
       const pPending = supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'student').eq('status', 'pending');
-      const pVotes = supabase.from('votes').select('id', { count: 'exact', head: true });
       
+      // Scoped votes count
+      let votesQuery = supabase.from('votes').select('id', { count: 'exact', head: true });
+      if (electionId && electionId !== DEFAULT_ELECTION_ID) {
+        votesQuery = votesQuery.eq('election_id', electionId);
+      }
+
       let allStudentIds: string[] = [];
       let page = 0;
       const limit = 1000;
       while (true) {
-        const { data, error } = await supabase
-          .from('votes')
-          .select('student_id')
-          .range(page * limit, (page + 1) * limit - 1);
-          
+        let pageQuery = supabase.from('votes').select('student_id');
+        if (electionId && electionId !== DEFAULT_ELECTION_ID) {
+          pageQuery = pageQuery.eq('election_id', electionId);
+        }
+        const { data, error } = await pageQuery.range(page * limit, (page + 1) * limit - 1);
+        
         if (error || !data) break;
         allStudentIds = allStudentIds.concat(data.map((v: any) => v.student_id));
         if (data.length < limit) break;
@@ -862,7 +1314,7 @@ class SupabaseDB implements IDatabaseService {
       
       const distinctVoters = votingStudentIds.filter(id => approvedIds.has(id)).length;
       
-      const [resApp, resRej, resPend, resVotes] = await Promise.all([pApproved, pRejected, pPending, pVotes]);
+      const [resApp, resRej, resPend, resVotes] = await Promise.all([pApproved, pRejected, pPending, votesQuery]);
       
       const stats = {
           totalApproved: resApp.count || 0,
@@ -875,22 +1327,24 @@ class SupabaseDB implements IDatabaseService {
       return stats;
   }
 
-  async updateElectionSettings(adminId: string, settings: ElectionSettings): Promise<ElectionSettings> {
+  async updateElectionSettings(adminId: string, settings: ElectionSettings, electionId?: string): Promise<ElectionSettings> {
+    const targetId = electionId || settings.electionId || DEFAULT_ELECTION_ID;
     const { error } = await supabase.from('settings').upsert({
       id: 1,
       start_date: settings.startDate,
       end_date: settings.endDate,
-      is_voting_enabled: settings.isVotingEnabled
+      is_voting_enabled: settings.isVotingEnabled,
+      election_id: targetId
     });
     if (error) throw new Error(error.message);
-    this.logAudit(adminId, UserRole.ADMIN, 'settings_updated', 'Updated election settings');
+    this.logAudit(adminId, UserRole.ADMIN, 'settings_updated', 'Updated election settings', undefined, targetId);
     return settings;
   }
 
   async getDepartments(): Promise<string[]> {
     try {
         const { data, error } = await supabase.from('departments').select('name');
-        if (error || !data) return [];
+        if (error || !data) return seedDepartments;
         return data.map((d: any) => d.name);
     } catch (e) {
         console.warn("Using fallback departments due to DB error", e);
@@ -908,34 +1362,42 @@ class SupabaseDB implements IDatabaseService {
     await supabase.from('departments').delete().eq('name', name);
   }
 
-  async getPositions(): Promise<Position[]> {
+  async getPositions(electionId?: string): Promise<Position[]> {
     const t0 = performance.now();
-    const { data, error } = await supabase.from('positions').select('name, price, eligible_level');
+    const targetId = electionId || DEFAULT_ELECTION_ID;
+    let query = supabase.from('positions').select('name, price, eligible_level, election_id');
+    
+    const { data, error } = await query;
     if (error) {
       logPerfMetrics('getPositions', performance.now() - t0, []);
       return [];
     }
-    const mapped = data.map((d: any) => ({
+    const filtered = (data || []).filter((d: any) => !d.election_id || d.election_id === targetId);
+    const mapped = filtered.map((d: any) => ({
         name: d.name,
         price: Number(d.price) || 0,
-        eligibleLevel: d.eligible_level || 'All'
+        eligibleLevel: d.eligible_level || 'All',
+        electionId: d.election_id || targetId
     }));
     logPerfMetrics('getPositions', performance.now() - t0, mapped);
     return mapped;
   }
 
-  async addPosition(adminId: string, name: string, price: number, level: string): Promise<Position> {
+  async addPosition(adminId: string, name: string, price: number, level: string, electionId?: string): Promise<Position> {
+    const targetId = electionId || DEFAULT_ELECTION_ID;
     const { error } = await supabase.from('positions').insert({ 
-        name, 
-        price, 
-        eligible_level: level 
-    });
+         name, 
+         price, 
+         eligible_level: level,
+         election_id: targetId
+     });
     if (error) throw new Error(error.message);
-    return { name, price, eligibleLevel: level };
+    return { name, price, eligibleLevel: level, electionId: targetId };
   }
 
-  async removePosition(adminId: string, name: string): Promise<void> {
-    await supabase.from('positions').delete().eq('name', name);
+  async removePosition(adminId: string, name: string, electionId?: string): Promise<void> {
+    const targetId = electionId || DEFAULT_ELECTION_ID;
+    await supabase.from('positions').delete().eq('name', name).eq('election_id', targetId);
   }
 
   async login(matricNo: string, password: string): Promise<User> {
@@ -943,9 +1405,6 @@ class SupabaseDB implements IDatabaseService {
       const { data, error } = await supabase.from('users').select('*').eq('matric_no', matricNo).single();
       
       if ((error || !data) && matricNo === 'admin' && password === 'admin123') {
-          // Check if ANY admin exists to prevent overwriting or duplicates if logic flawed
-          // Actually, just try to insert. If conflict, it handles it.
-          // But here we just want to bootstrap if missing.
           console.log("Admin account not found. Attempting to create default admin...");
           const { data: newAdmin, error: createError } = await supabase.from('users').insert({
             full_name: 'NACOS Administrator',
@@ -960,8 +1419,7 @@ class SupabaseDB implements IDatabaseService {
           if (newAdmin) {
               return this.mapUser(newAdmin);
           } else {
-             // If insert failed, maybe it exists but fetch failed? Or permission error.
-             if (createError) throw new Error(`DB Error: ${createError.message}. (Hint: Run SQL script to disable RLS or create admin)`);
+             if (createError) throw new Error(`DB Error: ${createError.message}.`);
           }
       }
 
@@ -974,8 +1432,8 @@ class SupabaseDB implements IDatabaseService {
       return this.mapUser(data);
     } catch (e: any) {
         console.error("Login Error:", e);
-        if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
-             throw new Error("Network Error: Could not connect to Database. Check configuration.");
+        if (e.message && (e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) { 
+            throw new Error("Network Error: Could not connect to Database. Check configuration.");
         }
         throw new Error(e.message || 'Connection failed');
     }
@@ -1013,9 +1471,6 @@ class SupabaseDB implements IDatabaseService {
     const { data: inserted, error } = await supabase.from('users').insert(userPayload).select().single();
     if (error) {
       if (error.code === '23505') throw new Error('Matric number already registered');
-      if (error.message?.includes('column "level" of relation "users" does not exist')) {
-          throw new Error('Database Error: Missing "level" column. Please run the SQL migration script.');
-      }
       throw new Error(error.message);
     }
     await sendEmail('admins@nacos.edu.ng', 'New Reg', `User ${data.fullName}`);
@@ -1039,9 +1494,15 @@ class SupabaseDB implements IDatabaseService {
   }
 
   // --- ASPIRANT METHODS (Supabase) ---
-  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>): Promise<Aspirant> {
-    const { data: existing } = await supabase.from('aspirants').select('*').eq('matric_no', data.matricNo).single();
-    if (existing) throw new Error("You have already applied.");
+  async registerAspirant(data: Omit<Aspirant, 'id' | 'status' | 'createdAt' | 'paymentStatus'>, electionId?: string): Promise<Aspirant> {
+    const targetId = electionId || DEFAULT_ELECTION_ID;
+    const { data: existing } = await supabase.from('aspirants')
+      .select('*')
+      .eq('matric_no', data.matricNo)
+      .eq('election_id', targetId)
+      .maybeSingle();
+
+    if (existing) throw new Error("You have already applied for this election.");
 
     const payload = {
         full_name: data.fullName,
@@ -1057,20 +1518,12 @@ class SupabaseDB implements IDatabaseService {
         phone: data.phone,
         status: ApprovalStatus.PENDING,
         payment_status: PaymentStatus.UNPAID,
+        election_id: targetId,
         created_at: Date.now()
     };
 
     const { data: inserted, error } = await supabase.from('aspirants').insert(payload).select().single();
     if (error) {
-        if (error.message?.includes('column "level" of relation "aspirants" does not exist')) {
-          throw new Error('Database Error: Missing "level" column. Please run the SQL migration script.');
-        }
-        if (error.message?.includes('column "payment_status"')) {
-            throw new Error('Database Error: Missing "payment_status" column. Please run the SQL migration script.');
-        }
-        if (error.message?.includes('column "address"')) {
-            throw new Error('Database Error: Missing "address" or "phone" column. Please run the SQL migration script.');
-        }
         throw new Error(error.message);
     }
     return this.mapAspirant(inserted);
@@ -1079,7 +1532,7 @@ class SupabaseDB implements IDatabaseService {
   async registerAspirantUser(data: {
       fullName: string, matricNo: string, department: string, level: string, passwordHash: string, idCardUrl: string,
       position: string, cgpa: string, manifesto: string, passportUrl: string, resultUrl: string, address: string, phone: string
-  }): Promise<void> {
+  }, electionId?: string): Promise<void> {
       await this.register({
           fullName: data.fullName,
           matricNo: data.matricNo,
@@ -1088,45 +1541,45 @@ class SupabaseDB implements IDatabaseService {
           passwordHash: data.passwordHash,
           idCardUrl: data.idCardUrl
       });
-      try {
-        await this.registerAspirant({
-            fullName: data.fullName,
-            matricNo: data.matricNo,
-            department: data.department,
-            level: data.level,
-            position: data.position,
-            cgpa: data.cgpa,
-            manifesto: data.manifesto,
-            passportUrl: data.passportUrl,
-            resultUrl: data.resultUrl,
-            address: data.address,
-            phone: data.phone
-        });
-      } catch (e: any) {
-          console.error("Aspirant creation failed after user created:", e);
-          throw e; 
-      }
+      
+      await this.registerAspirant({
+          fullName: data.fullName,
+          matricNo: data.matricNo,
+          department: data.department,
+          level: data.level,
+          position: data.position,
+          cgpa: data.cgpa,
+          manifesto: data.manifesto,
+          passportUrl: data.passportUrl,
+          resultUrl: data.resultUrl,
+          address: data.address,
+          phone: data.phone
+      }, electionId);
   }
 
-  async getAspirants(): Promise<Aspirant[]> {
+  async getAspirants(electionId?: string): Promise<Aspirant[]> {
       const t0 = performance.now();
+      const targetId = electionId || DEFAULT_ELECTION_ID;
       const { data, error } = await supabase.from('aspirants').select('*');
       if (error) {
         logPerfMetrics('getAspirants', performance.now() - t0, []);
         return [];
       }
-      const mapped = (data || []).map(this.mapAspirant);
+      const filtered = (data || []).filter((a: any) => !a.election_id || a.election_id === targetId);
+      const mapped = filtered.map(this.mapAspirant);
       logPerfMetrics('getAspirants', performance.now() - t0, mapped);
       return mapped;
   }
 
-  async getMyAspirantProfile(matricNo: string): Promise<Aspirant | null> {
+  async getMyAspirantProfile(matricNo: string, electionId?: string): Promise<Aspirant | null> {
       const t0 = performance.now();
+      const targetId = electionId || DEFAULT_ELECTION_ID;
       const { data, error } = await supabase
         .from('aspirants')
-        .select('id, full_name, matric_no, department, level, position, cgpa, manifesto, passport_url, result_url, address, phone, status, payment_status, payment_receipt_url, created_at')
+        .select('*')
         .ilike('matric_no', matricNo)
         .maybeSingle();
+
       if (error || !data) {
         logPerfMetrics('getMyAspirantProfile', performance.now() - t0, null);
         return null;
@@ -1142,12 +1595,7 @@ class SupabaseDB implements IDatabaseService {
           updateData.payment_receipt_url = receiptBase64;
       }
       const { error } = await supabase.from('aspirants').update(updateData).eq('id', aspirantId);
-      if (error) {
-          if (error.message?.includes('column "payment_receipt_url" of relation "aspirants" does not exist')) {
-              throw new Error('Database Error: Missing "payment_receipt_url" column. Please run this SQL in Supabase: ALTER TABLE aspirants ADD COLUMN payment_receipt_url TEXT;');
-          }
-          throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
   }
 
   async verifyPayment(adminId: string, aspirantId: string): Promise<void> {
@@ -1163,12 +1611,16 @@ class SupabaseDB implements IDatabaseService {
           if (asp && asp.payment_status !== PaymentStatus.PAID) {
               throw new Error("Cannot approve aspirant. Payment has not been verified.");
           }
+          const electionId = asp?.election_id || DEFAULT_ELECTION_ID;
+          const { data: existingCand } = await supabase.from('candidates')
+            .select('id')
+            .eq('matric_no', asp.matric_no)
+            .eq('election_id', electionId)
+            .maybeSingle();
 
-          // Check for duplicate candidate before proceeding
-          const { data: existingCand } = await supabase.from('candidates').select('id').eq('matric_no', asp.matric_no).maybeSingle();
           if (existingCand) {
                await supabase.from('aspirants').update({ status: ApprovalStatus.APPROVED }).eq('id', aspirantId);
-               return; // Already promoted
+               return;
           }
       }
 
@@ -1180,8 +1632,9 @@ class SupabaseDB implements IDatabaseService {
         .single();
       
       if (error) throw new Error(error.message);
-
+      
       if (approved && aspirant) {
+           const targetElectionId = aspirant.election_id || DEFAULT_ELECTION_ID;
            await this.addCandidate(adminId, {
             name: aspirant.full_name,
             matricNo: aspirant.matric_no,
@@ -1191,8 +1644,9 @@ class SupabaseDB implements IDatabaseService {
             photoUrl: aspirant.passport_url,
             level: aspirant.level,
             cgpa: aspirant.cgpa,
-            resultUrl: aspirant.result_url
-           });
+            resultUrl: aspirant.result_url,
+            electionId: targetElectionId
+           }, targetElectionId);
 
            await supabase
             .from('users')
@@ -1219,21 +1673,25 @@ class SupabaseDB implements IDatabaseService {
           status: a.status,
           paymentStatus: a.payment_status || PaymentStatus.UNPAID,
           paymentReceiptUrl: a.payment_receipt_url,
+          electionId: a.election_id || DEFAULT_ELECTION_ID,
           createdAt: Number(a.created_at)
       };
   }
 
-  // Voting Methods
-  async getCandidates(): Promise<Candidate[]> {
+  // --- CANDIDATES & VOTING ---
+  async getCandidates(electionId?: string): Promise<Candidate[]> {
     const t0 = performance.now();
+    const targetId = electionId || DEFAULT_ELECTION_ID;
     const { data, error } = await supabase
       .from('candidates')
-      .select('id, name, matric_no, department, position, manifesto, photo_url, level, cgpa');
+      .select('id, name, matric_no, department, position, manifesto, photo_url, level, cgpa, election_id');
+    
     if (error) {
       logPerfMetrics('getCandidates', performance.now() - t0, []);
       return [];
     }
-    const mapped = (data || []).map((c: any) => ({
+    const filtered = (data || []).filter((c: any) => !c.election_id || c.election_id === targetId);
+    const mapped = filtered.map((c: any) => ({
       id: c.id,
       name: c.name,
       matricNo: c.matric_no,
@@ -1242,23 +1700,27 @@ class SupabaseDB implements IDatabaseService {
       manifesto: c.manifesto || '',
       photoUrl: c.photo_url || '',
       level: c.level,
-      cgpa: c.cgpa
+      cgpa: c.cgpa,
+      electionId: c.election_id || targetId
     }));
     logPerfMetrics('getCandidates', performance.now() - t0, mapped);
     return mapped;
   }
 
-  async getVotingCandidates(): Promise<Candidate[]> {
+  async getVotingCandidates(electionId?: string): Promise<Candidate[]> {
     const t0 = performance.now();
+    const targetId = electionId || DEFAULT_ELECTION_ID;
     const { data, error } = await supabase
       .from('candidates')
-      .select('id, name, matric_no, department, position, manifesto, photo_url, level');
+      .select('id, name, matric_no, department, position, manifesto, photo_url, level, election_id');
+    
     if (error) {
       console.error("Supabase getVotingCandidates error:", error);
       logPerfMetrics('getVotingCandidates', performance.now() - t0, []);
       return [];
     }
-    const mapped = (data || []).map((c: any) => ({
+    const filtered = (data || []).filter((c: any) => !c.election_id || c.election_id === targetId);
+    const mapped = filtered.map((c: any) => ({
       id: c.id,
       name: c.name,
       matricNo: c.matric_no,
@@ -1266,17 +1728,23 @@ class SupabaseDB implements IDatabaseService {
       position: c.position,
       manifesto: c.manifesto || '',
       photoUrl: c.photo_url || '',
-      level: c.level
+      level: c.level,
+      electionId: c.election_id || targetId
     }));
     logPerfMetrics('getVotingCandidates', performance.now() - t0, mapped);
     return mapped;
   }
 
-  async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>): Promise<Candidate> {
-    // Check duplication
-    const { data: existing } = await supabase.from('candidates').select('id').eq('matric_no', candidate.matricNo).maybeSingle();
+  async addCandidate(adminId: string, candidate: Omit<Candidate, 'id'>, electionId?: string): Promise<Candidate> {
+    const targetId = electionId || candidate.electionId || DEFAULT_ELECTION_ID;
+    const { data: existing } = await supabase.from('candidates')
+      .select('id')
+      .eq('matric_no', candidate.matricNo)
+      .eq('election_id', targetId)
+      .maybeSingle();
+
     if (existing) {
-        throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists.`);
+        throw new Error(`Candidate with Matric No ${candidate.matricNo} already exists in this election.`);
     }
 
     const dbCand = {
@@ -1288,45 +1756,58 @@ class SupabaseDB implements IDatabaseService {
       photo_url: candidate.photoUrl,
       level: candidate.level,
       cgpa: candidate.cgpa,
-      result_url: candidate.resultUrl
+      result_url: candidate.resultUrl,
+      election_id: targetId
     };
+
     const { data, error } = await supabase.from('candidates').insert(dbCand).select().single();
     if (error) throw new Error(error.message);
-    this.logAudit(adminId, UserRole.ADMIN, 'add_candidate', `Added ${candidate.name}`, data.id);
-    return { ...candidate, id: data.id };
+    this.logAudit(adminId, UserRole.ADMIN, 'add_candidate', `Added ${candidate.name}`, data.id, targetId);
+    return { ...candidate, id: data.id, electionId: targetId };
   }
 
-  async updateCandidate(adminId: string, candidate: Candidate): Promise<Candidate> {
-    const { error } = await supabase.from('candidates').update({
+  async updateCandidate(adminId: string, candidate: Candidate, electionId?: string): Promise<Candidate> {
+    const targetId = electionId || candidate.electionId || DEFAULT_ELECTION_ID;
+    const { error } = await supabase.from('candidates').update({ 
        name: candidate.name,
        matric_no: candidate.matricNo,
        department: candidate.department,
        position: candidate.position,
        manifesto: candidate.manifesto,
-       photo_url: candidate.photoUrl
+       photo_url: candidate.photoUrl,
+       election_id: targetId
     }).eq('id', candidate.id);
-    if(error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
     return candidate;
   }
 
-  async removeCandidate(adminId: string, candidateId: string): Promise<void> {
+  async removeCandidate(adminId: string, candidateId: string, electionId?: string): Promise<void> {
     await supabase.from('candidates').delete().eq('id', candidateId);
   }
 
-  async castVote(studentId: string, candidateId: string, position: string): Promise<Vote> {
-    const settings = await this.getElectionSettings();
+  async castVote(studentId: string, candidateId: string, position: string, electionId?: string): Promise<Vote> {
+    const targetId = electionId || DEFAULT_ELECTION_ID;
+    const settings = await this.getElectionSettings(targetId);
     if (!settings.isVotingEnabled) throw new Error('Voting is closed');
 
+    // Database check for duplicate vote within this election
     const { data: existing } = await supabase.from('votes')
-      .select('id').eq('student_id', studentId).eq('position', position).maybeSingle();
-    if (existing) throw new Error('Already voted for this position');
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('position', position)
+      .eq('election_id', targetId)
+      .maybeSingle();
+
+    if (existing) throw new Error('Already voted for this position in this election');
 
     const voteData = {
       student_id: studentId,
       candidate_id: candidateId,
       position: position,
+      election_id: targetId,
       timestamp: Date.now()
     };
+
     const { data, error } = await supabase.from('votes').insert(voteData).select().single();
     if (error) throw new Error(error.message);
     return {
@@ -1334,13 +1815,19 @@ class SupabaseDB implements IDatabaseService {
       studentId: data.student_id,
       candidateId: data.candidate_id,
       position: data.position,
+      electionId: data.election_id || targetId,
       timestamp: Number(data.timestamp)
     };
   }
 
-  async getMyVotes(studentId: string): Promise<Vote[]> {
+  async getMyVotes(studentId: string, electionId?: string): Promise<Vote[]> {
     const t0 = performance.now();
-    const { data, error } = await supabase.from('votes').select('*').eq('student_id', studentId);
+    const targetId = electionId || DEFAULT_ELECTION_ID;
+    let query = supabase.from('votes').select('*').eq('student_id', studentId);
+    if (electionId) {
+      query = query.eq('election_id', targetId);
+    }
+    const { data, error } = await query;
     if (error) {
       logPerfMetrics('getMyVotes', performance.now() - t0, []);
       return [];
@@ -1350,42 +1837,40 @@ class SupabaseDB implements IDatabaseService {
       studentId: v.student_id,
       candidateId: v.candidate_id,
       position: v.position,
+      electionId: v.election_id || targetId,
       timestamp: Number(v.timestamp)
     }));
     logPerfMetrics('getMyVotes', performance.now() - t0, mapped);
     return mapped;
   }
 
-  async getResults(): Promise<{candidateId: string, count: number}[]> {
+  async getResults(electionId?: string): Promise<{candidateId: string, count: number}[]> {
     const t0 = performance.now();
-    // Fetch all candidates first
-    const { data: candidates, error: cError } = await supabase.from('candidates').select('id');
-    if (cError) {
-      logPerfMetrics('getResults', performance.now() - t0, []);
-      return [];
-    }
-
-    // Perform database-side aggregation for each candidate using exact count
-    // This perfectly bypasses the 1000-row select limit by letting Postgres handle the COUNT(*)
+    const targetId = electionId || DEFAULT_ELECTION_ID;
+    
+    // Fetch candidates for this election
+    const candidates = await this.getCandidates(targetId);
+    
     const counts = await Promise.all((candidates || []).map(async (c) => {
-      const { count, error } = await supabase
-        .from('votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('candidate_id', c.id);
+      let query = supabase.from('votes').select('id', { count: 'exact', head: true }).eq('candidate_id', c.id);
+      if (electionId) {
+        query = query.eq('election_id', targetId);
+      }
+      const { count } = await query;
       return { candidateId: c.id, count: count || 0 };
     }));
-
     logPerfMetrics('getResults', performance.now() - t0, counts);
     return counts;
   }
 
-  async getCandidateVoteCount(candidateId: string): Promise<number> {
+  async getCandidateVoteCount(candidateId: string, electionId?: string): Promise<number> {
       const t0 = performance.now();
-      const { count, error } = await supabase
-        .from('votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('candidate_id', candidateId);
-      
+      const targetId = electionId || DEFAULT_ELECTION_ID;
+      let query = supabase.from('votes').select('id', { count: 'exact', head: true }).eq('candidate_id', candidateId);
+      if (electionId) {
+        query = query.eq('election_id', targetId);
+      }
+      const { count, error } = await query;
       if (error) {
           console.error("Supabase getCandidateVoteCount error:", error);
       }
@@ -1393,19 +1878,24 @@ class SupabaseDB implements IDatabaseService {
       return count || 0;
   }
 
-  async getAuditLogs(adminId: string): Promise<AuditLog[]> {
-    const { data } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
+  async getAuditLogs(adminId: string, electionId?: string): Promise<AuditLog[]> {
+    let query = supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
+    if (electionId) {
+      query = query.eq('election_id', electionId);
+    }
+    const { data } = await query;
     return (data || []).map((l: any) => ({
       id: l.id,
       actorId: l.actor_id,
       actorRole: l.actor_role as UserRole,
       actionType: l.action_type,
       details: l.details,
+      electionId: l.election_id,
       timestamp: Number(l.timestamp)
     }));
   }
 
-  async getDepartmentStats(): Promise<{name: string, count: number}[]> {
+  async getDepartmentStats(electionId?: string): Promise<{name: string, count: number}[]> {
      const { data } = await supabase.from('users').select('department');
      const counts: Record<string, number> = {};
      (data || []).forEach((u: any) => {
@@ -1414,22 +1904,22 @@ class SupabaseDB implements IDatabaseService {
      return Object.entries(counts).map(([name, count]) => ({ name, count }));
   }
 
-  async getVoterBreakdown(): Promise<{
+  async getVoterBreakdown(electionId?: string): Promise<{
       byLevel: {name: string, count: number}[],
       byDepartment: {name: string, count: number}[]
   }> {
+      const targetId = electionId || DEFAULT_ELECTION_ID;
       const { data: users } = await supabase.from('users').select('id, level, department');
       
-      // Paginate to get all distinct student_ids from votes without being capped at 1000
       let allStudentIds: string[] = [];
       let page = 0;
       const limit = 1000;
       while (true) {
-        const { data, error } = await supabase
-          .from('votes')
-          .select('student_id')
-          .range(page * limit, (page + 1) * limit - 1);
-          
+        let pageQuery = supabase.from('votes').select('student_id');
+        if (electionId) {
+          pageQuery = pageQuery.eq('election_id', targetId);
+        }
+        const { data, error } = await pageQuery.range(page * limit, (page + 1) * limit - 1);
         if (error || !data) break;
         allStudentIds = allStudentIds.concat(data.map((v: any) => v.student_id));
         if (data.length < limit) break;
@@ -1439,7 +1929,6 @@ class SupabaseDB implements IDatabaseService {
       const votingStudentIds = new Set(allStudentIds);
       const levelCounts: Record<string, number> = {};
       const deptCounts: Record<string, number> = {};
-
       (users || []).forEach((u: any) => {
           if (votingStudentIds.has(u.id)) {
               const level = u.level || 'Unknown';
@@ -1447,7 +1936,6 @@ class SupabaseDB implements IDatabaseService {
               deptCounts[u.department] = (deptCounts[u.department] || 0) + 1;
           }
       });
-
       return {
           byLevel: Object.entries(levelCounts).map(([name, count]) => ({name, count})),
           byDepartment: Object.entries(deptCounts).map(([name, count]) => ({name, count}))
@@ -1469,23 +1957,28 @@ class SupabaseDB implements IDatabaseService {
     };
   }
 
-  private async logAudit(actorId: string, role: UserRole, type: string, details: string, targetId?: string) {
-    await supabase.from('audit_logs').insert({
-      actor_id: actorId,
-      actor_role: role,
-      action_type: type,
-      details: details,
-      target_id: targetId,
-      timestamp: Date.now()
-    });
+  private async logAudit(actorId: string, role: UserRole, type: string, details: string, targetId?: string, electionId?: string) {
+    try {
+      await supabase.from('audit_logs').insert({
+        actor_id: actorId,
+        actor_role: role,
+        action_type: type,
+        details: details,
+        target_id: targetId,
+        election_id: electionId || DEFAULT_ELECTION_ID,
+        timestamp: Date.now()
+      });
+    } catch (e) {
+      console.warn("Could not write audit log:", e);
+    }
   }
 
   // --- OUTGOING EXECUTIVES ---
   async getOutgoingExecutives(): Promise<OutgoingExecutive[]> {
       const { data, error } = await supabase.from('outgoing_executives').select('*');
       if (error) {
-          console.warn("outgoing_executives table might not exist in Supabase:", error);
-          return seedExecutives; // Fallback to mock data if table is missing so UI doesn't break
+          console.warn("outgoing_executives table fallback:", error);
+          return seedExecutives;
       }
       return (data || []).map((e: any) => ({
           id: e.id,

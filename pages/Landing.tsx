@@ -1,11 +1,18 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { OutgoingExecutivesCarousel } from '../components/OutgoingExecutivesCarousel';
+import { db } from '../services/mockDb';
+import { Election } from '../types';
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
+  const [activeElection, setActiveElection] = useState<Election | null>(null);
+
+  useEffect(() => {
+    db.getActiveElection().then(setActiveElection).catch(console.error);
+  }, []);
 
   // Mock Data for the Trading-style Chart
   const chartData = [
@@ -47,13 +54,21 @@ export const Landing: React.FC = () => {
           {/* LEFT COLUMN: Typography & Actions */}
           <div className="space-y-6 lg:space-y-8 animate-fade-in max-w-2xl mx-auto lg:mx-0 text-center lg:text-left">
             
-            {/* Trust Badge - Updated for FPB */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm backdrop-blur-sm bg-opacity-80">
+            {/* Trust Badge - Dynamic Election Status */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm backdrop-blur-sm bg-opacity-80">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-semibold text-slate-600 tracking-wide">Official NACOS Platform • <span className="text-emerald-700">Federal Poly Bida</span></span>
+              <span className="text-xs font-semibold text-slate-600 tracking-wide">
+                {activeElection ? (
+                  <>
+                    <strong className="text-slate-800">{activeElection.title}</strong> • Session {activeElection.session} • <span className="text-emerald-700 font-bold uppercase">{activeElection.status}</span>
+                  </>
+                ) : (
+                  <>Official NACOS Platform • <span className="text-emerald-700">Federal Poly Bida</span></>
+                )}
+              </span>
             </div>
 
             {/* Headline - Updated for Bida */}

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { db } from '../services/mockDb';
-import { Position } from '../types';
+import { Position, Election, DEFAULT_ELECTION, DEFAULT_ELECTION_ID } from '../types';
 
 export const RegisterAspirant: React.FC = () => {
   const navigate = useNavigate();
@@ -11,6 +11,8 @@ export const RegisterAspirant: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // Lists
+  const [elections, setElections] = useState<Election[]>([]);
+  const [selectedElectionId, setSelectedElectionId] = useState<string>(DEFAULT_ELECTION_ID);
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const LEVELS = ['ND I', 'ND II', 'HND I', 'HND II'];
@@ -40,17 +42,38 @@ export const RegisterAspirant: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [p, d] = await Promise.all([db.getPositions(), db.getDepartments()]);
-        setPositions(p);
+        const [elList, d] = await Promise.all([db.getElections(), db.getDepartments()]);
+        setElections(elList);
         setDepartments(d);
-        if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0].name }));
         if (d.length > 0) setFormData(prev => ({ ...prev, department: d[0] }));
+
+        const active = elList.find(e => e.status === 'live' && e.aspirantRegistrationOpen !== false) ||
+                       elList.find(e => e.status === 'scheduled') ||
+                       elList[0] || DEFAULT_ELECTION;
+        setSelectedElectionId(active.id);
+
+        const p = await db.getPositions(active.id);
+        setPositions(p);
+        if (p.length > 0) setFormData(prev => ({ ...prev, position: p[0].name }));
       } catch (e) {
-          console.error(e);
+        console.error(e);
       }
     };
     fetchData();
   }, []);
+
+  const handleElectionChange = async (electionId: string) => {
+    setSelectedElectionId(electionId);
+    try {
+      const p = await db.getPositions(electionId);
+      setPositions(p);
+      if (p.length > 0) {
+        setFormData(prev => ({ ...prev, position: p[0].name }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Compression
   const compressImage = (file: File): Promise<string> => {
@@ -139,7 +162,7 @@ export const RegisterAspirant: React.FC = () => {
             resultUrl: resultPreview,
             address: formData.address,
             phone: formData.phone
-        });
+        }, selectedElectionId);
 
         alert("Application submitted successfully! Please log in to your dashboard to complete the payment for your nomination form.");
         navigate('/');
@@ -170,6 +193,27 @@ export const RegisterAspirant: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     
+                    {/* Election Selection Banner */}
+                    <div className="bg-purple-50 p-3 sm:p-4 rounded-xl border border-purple-200">
+                        <label className="block text-xs font-bold text-purple-900 uppercase tracking-wide mb-1">
+                            Select Election / Tenure Cohort
+                        </label>
+                        <select
+                            value={selectedElectionId}
+                            onChange={(e) => handleElectionChange(e.target.value)}
+                            className="w-full bg-white border border-purple-300 rounded-lg px-3 py-2 text-xs font-semibold text-purple-950 focus:ring-2 focus:ring-purple-500 outline-none"
+                        >
+                            {elections.map((el) => (
+                                <option key={el.id} value={el.id}>
+                                    {el.title} ({el.session}) - [{el.status.toUpperCase()}]
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-purple-700 mt-1">
+                            Your candidacy application and nomination form will be scoped to this election.
+                        </p>
+                    </div>
+
                     {/* Section 1: Account Details */}
                     <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
                         <h3 className="text-xs sm:text-sm font-bold text-gray-700 uppercase mb-3 border-b pb-2">1. Personal & Login Details</h3>

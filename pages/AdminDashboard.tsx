@@ -1,6 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
-import { User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, PaymentStatus, OutgoingExecutive, ExecutiveStatus } from '../types';
+import { 
+  User, Candidate, AuditLog, Vote, ElectionSettings, Position, Aspirant, 
+  PaymentStatus, OutgoingExecutive, ExecutiveStatus, Election, ElectionStatus, 
+  DEFAULT_ELECTION, DEFAULT_ELECTION_ID 
+} from '../types';
+import { ElectionWizard } from '../components/ElectionWizard';
+import { 
+  Vote as VoteIcon, Calendar, CheckCircle2, AlertTriangle, Layers, 
+  PlusCircle, Archive, Trash2, Edit3, Copy, RefreshCw, ChevronDown, 
+  Award, ShieldCheck, Users, ExternalLink, Plus, Check
+} from 'lucide-react';
 import { db } from '../services/mockDb';
 import { Button } from '../components/Button';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -11,7 +21,15 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'aspirants' | 'results' | 'analytics' | 'candidates' | 'positions' | 'departments' | 'audit' | 'settings' | 'executives'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'elections' | 'pending' | 'aspirants' | 'results' | 'candidates' | 'positions' | 'departments' | 'audit' | 'settings' | 'executives'>('analytics');
+
+  // Multi-Election State
+  const [elections, setElections] = useState<Election[]>([]);
+  const [selectedElectionId, setSelectedElectionId] = useState<string>(DEFAULT_ELECTION_ID);
+  const [selectedElection, setSelectedElection] = useState<Election | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardElection, setWizardElection] = useState<Election | null>(null);
+  const [electionActionMsg, setElectionActionMsg] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [aspirants, setAspirants] = useState<Aspirant[]>([]);
   const [executives, setExecutives] = useState<OutgoingExecutive[]>([]);
@@ -63,22 +81,154 @@ export const AdminDashboard: React.FC = () => {
   // --- CHART COLORS ---
   const COLORS = ['#10B981', '#6366F1', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#64748B'];
 
+  const fetchElections = async () => {
+    try {
+      const all = await db.getElections();
+      setElections(all);
+      let current = all.find(e => e.id === selectedElectionId);
+      if (!current) {
+        current = all.find(e => e.status === 'live') || all[0] || DEFAULT_ELECTION;
+        setSelectedElectionId(current.id);
+      }
+      setSelectedElection(current);
+      return all;
+    } catch (e) {
+      console.error("Error fetching elections:", e);
+      return [];
+    }
+  };
+
+  const handleSwitchElection = (electionId: string) => {
+    setSelectedElectionId(electionId);
+    const target = elections.find(e => e.id === electionId) || null;
+    setSelectedElection(target);
+    setElectionActionMsg({ text: `Switched dashboard scope to "${target?.title || electionId}"`, type: 'success' });
+    setTimeout(() => setElectionActionMsg(null), 3000);
+  };
+
+  const handleOpenWizard = (electionToEdit?: Election | null) => {
+    setWizardElection(electionToEdit || null);
+    setIsWizardOpen(true);
+  };
+
+  const handleSaveWizardElection = async (electionData: Omit<Election, 'createdAt' | 'updatedAt'>, newPositions?: Position[]) => {
+    try {
+      const existing = elections.find(e => e.id === electionData.id);
+      let saved: Election;
+      if (existing) {
+        saved = await db.updateElection('admin-1', electionData);
+      } else {
+        saved = await db.createElection('admin-1', electionData);
+      }
+
+      if (newPositions && newPositions.length > 0) {
+        const existingPos = await db.getPositions(saved.id);
+        for (const p of newPositions) {
+          if (!existingPos.some(ep => ep.name.toLowerCase() === p.name.toLowerCase())) {
+            await db.addPosition('admin-1', p.name, p.price, p.eligibleLevel, saved.id);
+          }
+        }
+      }
+
+      const all = await fetchElections();
+      setSelectedElectionId(saved.id);
+      setSelectedElection(saved);
+      setIsWizardOpen(false);
+      setWizardElection(null);
+      setElectionActionMsg({ text: `Election "${saved.title}" saved successfully!`, type: 'success' });
+      setTimeout(() => setElectionActionMsg(null), 4000);
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const handleStatusChange = async (electionId: string, newStatus: ElectionStatus) => {
+    try {
+      await db.setElectionStatus('admin-1', electionId, newStatus);
+      await fetchElections();
+      setElectionActionMsg({ text: `Election status updated to "${newStatus.toUpperCase()}"`, type: 'success' });
+      setTimeout(() => setElectionActionMsg(null), 3000);
+    } catch (err: any) {
+      alert("Error changing election status: " + err.message);
+    }
+  };
+
+  const handleArchiveElection = async (electionId: string) => {
+    if (confirm("Archive this election? It will become read-only and preserved for historical reporting.")) {
+      try {
+        await db.archiveElection('admin-1', electionId);
+        await fetchElections();
+        setElectionActionMsg({ text: "Election archived successfully.", type: 'success' });
+        setTimeout(() => setElectionActionMsg(null), 3000);
+      } catch (err: any) {
+        alert("Error archiving election: " + err.message);
+      }
+    }
+  };
+
+  const handleDeleteElection = async (electionId: string) => {
+    if (confirm("Are you sure you want to delete this election draft? If votes exist, deletion will be blocked.")) {
+      try {
+        await db.deleteElection('admin-1', electionId);
+        await fetchElections();
+        setElectionActionMsg({ text: "Election deleted successfully.", type: 'success' });
+        setTimeout(() => setElectionActionMsg(null), 3000);
+      } catch (err: any) {
+        alert(err.message);
+      }
+    }
+  };
+
+  const handleDuplicateElection = async (source: Election) => {
+    const cloneId = `election-${Date.now().toString(36)}`;
+    const clonedData: Omit<Election, 'createdAt' | 'updatedAt'> = {
+      id: cloneId,
+      title: `${source.title} (Clone)`,
+      session: source.session,
+      description: `Cloned from ${source.title}`,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'draft',
+      isVotingEnabled: false,
+      eligibleLevels: source.eligibleLevels,
+      eligibleDepartments: source.eligibleDepartments,
+      aspirantRegistrationOpen: source.aspirantRegistrationOpen,
+      aspirantFeeRequired: source.aspirantFeeRequired,
+      createdBy: 'admin-1'
+    };
+
+    try {
+      const sourcePositions = await db.getPositions(source.id);
+      const newElection = await db.createElection('admin-1', clonedData);
+      for (const pos of sourcePositions) {
+        await db.addPosition('admin-1', pos.name, pos.price, pos.eligibleLevel, newElection.id);
+      }
+      await fetchElections();
+      setSelectedElectionId(newElection.id);
+      setSelectedElection(newElection);
+      setElectionActionMsg({ text: `Cloned into new draft election "${newElection.title}"`, type: 'success' });
+      setTimeout(() => setElectionActionMsg(null), 4000);
+    } catch (err: any) {
+      alert("Failed to duplicate election: " + err.message);
+    }
+  };
+
   const fetchPending = async () => {
     const users = await db.getPendingUsers();
     setPendingUsers(users);
   };
 
-  const fetchAspirants = async () => {
-    const asps = await db.getAspirants();
+  const fetchAspirants = async (electionId = selectedElectionId) => {
+    const asps = await db.getAspirants(electionId);
     setAspirants(asps);
   };
 
   const [candidatesLoading, setCandidatesLoading] = useState(false);
 
-  const fetchCandidates = async () => {
+  const fetchCandidates = async (electionId = selectedElectionId) => {
     setCandidatesLoading(true);
     try {
-      const cands = await db.getCandidates();
+      const cands = await db.getCandidates(electionId);
       setCandidates(cands);
       return cands;
     } finally {
@@ -86,8 +236,8 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchPositions = async () => {
-    const pos = await db.getPositions();
+  const fetchPositions = async (electionId = selectedElectionId) => {
+    const pos = await db.getPositions(electionId);
     setPositions(pos);
   };
 
@@ -96,13 +246,10 @@ export const AdminDashboard: React.FC = () => {
     setDepartments(depts);
   };
 
-  const fetchResults = async () => {
-    let currentCandidates = candidates;
-    if (currentCandidates.length === 0) {
-      currentCandidates = await (db.getVotingCandidates ? db.getVotingCandidates() : db.getCandidates());
-      setCandidates(currentCandidates);
-    }
-    const res = await db.getResults();
+  const fetchResults = async (electionId = selectedElectionId) => {
+    const currentCandidates = await (db.getVotingCandidates ? db.getVotingCandidates(electionId) : db.getCandidates(electionId));
+    setCandidates(currentCandidates);
+    const res = await db.getResults(electionId);
     
     // Merge votes with candidate names for chart
     const chartData = currentCandidates.map(c => {
@@ -122,27 +269,34 @@ export const AdminDashboard: React.FC = () => {
       setDepartmentStats(stats);
   }
 
-  const fetchVoterBreakdown = async () => {
-      const breakdown = await db.getVoterBreakdown();
+  const fetchVoterBreakdown = async (electionId = selectedElectionId) => {
+      const breakdown = await db.getVoterBreakdown(electionId);
       setVoterBreakdown(breakdown);
   }
 
-  const fetchElectionStats = async () => {
-      const stats = await db.getElectionStats();
+  const fetchElectionStats = async (electionId = selectedElectionId) => {
+      const stats = await db.getElectionStats(electionId);
       setElectionStats(stats);
   }
 
-  const fetchAudit = async () => {
-      const audit = await db.getAuditLogs('admin-1');
+  const fetchAudit = async (electionId = selectedElectionId) => {
+      const audit = await db.getAuditLogs('admin-1', electionId);
       setLogs(audit);
   }
 
-  const fetchSettings = async () => {
-      const s = await db.getElectionSettings();
+  const fetchSettings = async (electionId = selectedElectionId) => {
+      const s = await db.getElectionSettings(electionId);
       setSettings(s);
   }
 
   useEffect(() => {
+    fetchElections();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'elections') {
+      fetchElections();
+    }
     if (activeTab === 'pending') {
       fetchPending();
       const unsubscribe = db.subscribe('user_update', () => {
@@ -205,7 +359,7 @@ export const AdminDashboard: React.FC = () => {
         fetchPositions();
     }
 
-  }, [activeTab]);
+  }, [activeTab, selectedElectionId]);
 
   const fetchExecutives = async () => {
       const execs = await db.getOutgoingExecutives();
@@ -311,9 +465,9 @@ export const AdminDashboard: React.FC = () => {
     };
     try {
       if (isEditingCandidate && finalForm.id) {
-        await db.updateCandidate('admin-1', finalForm as Candidate);
+        await db.updateCandidate('admin-1', { ...(finalForm as Candidate), electionId: selectedElectionId }, selectedElectionId);
       } else {
-        await db.addCandidate('admin-1', finalForm as Omit<Candidate, 'id'>);
+        await db.addCandidate('admin-1', { ...(finalForm as Omit<Candidate, 'id'>), electionId: selectedElectionId }, selectedElectionId);
       }
       setIsCandidateModalOpen(false);
       fetchCandidates();
@@ -326,8 +480,8 @@ export const AdminDashboard: React.FC = () => {
 
   const handleDeleteCandidate = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this candidate? This cannot be undone.")) {
-      await db.removeCandidate('admin-1', id);
-      fetchCandidates();
+      await db.removeCandidate('admin-1', id, selectedElectionId);
+      fetchCandidates(selectedElectionId);
     }
   };
 
@@ -335,9 +489,9 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     if (!newPosition.name.trim()) return;
     try {
-      await db.addPosition('admin-1', newPosition.name.trim(), Number(newPosition.price), newPosition.level);
+      await db.addPosition('admin-1', newPosition.name.trim(), Number(newPosition.price), newPosition.level, selectedElectionId);
       setNewPosition({ name: '', price: '0', level: 'All' });
-      fetchPositions();
+      fetchPositions(selectedElectionId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -345,8 +499,8 @@ export const AdminDashboard: React.FC = () => {
 
   const handleRemovePosition = async (name: string) => {
     if (window.confirm(`Delete position "${name}"? This won't delete existing candidates but might affect display.`)) {
-      await db.removePosition('admin-1', name);
-      fetchPositions();
+      await db.removePosition('admin-1', name, selectedElectionId);
+      fetchPositions(selectedElectionId);
     }
   };
 
@@ -373,7 +527,7 @@ export const AdminDashboard: React.FC = () => {
       e.preventDefault();
       setLoading(true);
       try {
-          await db.updateElectionSettings('admin-1', settings);
+          await db.updateElectionSettings('admin-1', { ...settings, electionId: selectedElectionId }, selectedElectionId);
           alert("Election settings updated successfully.");
       } catch (err: any) {
           alert("Error updating settings: " + err.message);
@@ -454,14 +608,14 @@ export const AdminDashboard: React.FC = () => {
     try {
         // Fetch fresh up-to-date data
         const [freshResults, freshCandidates, freshPositions, freshDeptStats, freshSettings, freshDepts, freshBreakdown, freshStats] = await Promise.all([
-             db.getResults(),
-             db.getCandidates(),
-             db.getPositions(),
-             db.getDepartmentStats(),
-             db.getElectionSettings(),
+             db.getResults(selectedElectionId),
+             db.getCandidates(selectedElectionId),
+             db.getPositions(selectedElectionId),
+             db.getDepartmentStats(selectedElectionId),
+             db.getElectionSettings(selectedElectionId),
              db.getDepartments(),
-             db.getVoterBreakdown(),
-             db.getElectionStats()
+             db.getVoterBreakdown(selectedElectionId),
+             db.getElectionStats(selectedElectionId)
         ]);
 
         const doc = new jsPDF();
@@ -890,10 +1044,81 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* ELECTION SCOPE BANNER & SWITCHER */}
+      <div className="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-md border border-slate-800 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <VoteIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Dashboard Scope</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                selectedElection?.status === 'live' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                selectedElection?.status === 'scheduled' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                selectedElection?.status === 'closed' ? 'bg-slate-700 text-slate-300 border border-slate-600' :
+                selectedElection?.status === 'archived' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}>
+                {selectedElection?.status === 'live' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>}
+                {selectedElection?.status?.toUpperCase() || 'LIVE'}
+              </span>
+              <span className="text-xs text-slate-400">Session: <strong className="text-white">{selectedElection?.session || '2024/2025'}</strong></span>
+            </div>
+            <h2 className="text-base sm:text-lg font-bold text-white mt-0.5 truncate">
+              {selectedElection?.title || 'NACOS General Elections 2024/2025'}
+            </h2>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={selectedElectionId}
+            onChange={(e) => handleSwitchElection(e.target.value)}
+            className="bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          >
+            {elections.map((el) => (
+              <option key={el.id} value={el.id}>
+                [{el.status.toUpperCase()}] {el.title} ({el.session})
+              </option>
+            ))}
+          </select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleOpenWizard(selectedElection)}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 text-xs py-1.5"
+          >
+            <Edit3 className="w-3.5 h-3.5 mr-1" />
+            Configure
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => handleOpenWizard(null)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-xs py-1.5"
+          >
+            <PlusCircle className="w-3.5 h-3.5 mr-1" />
+            New Election
+          </Button>
+        </div>
+      </div>
+
+      {electionActionMsg && (
+        <div className={`mb-6 p-3 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+          electionActionMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
+          <span>{electionActionMsg.text}</span>
+          <button onClick={() => setElectionActionMsg(null)} className="text-slate-400 hover:text-slate-600">×</button>
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-6 overflow-x-auto">
         <nav className="-mb-px flex space-x-6">
-          {['analytics', 'pending', 'aspirants', 'results', 'candidates', 'positions', 'departments', 'audit', 'settings', 'executives'].map((tab) => (
+          {['analytics', 'elections', 'pending', 'aspirants', 'results', 'candidates', 'positions', 'departments', 'audit', 'settings', 'executives'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
@@ -1622,6 +1847,17 @@ export const AdminDashboard: React.FC = () => {
             </div>
         </div>
       )}
+
+      {/* 5-STEP ELECTION WIZARD MODAL */}
+      <ElectionWizard
+        isOpen={isWizardOpen}
+        onClose={() => { setIsWizardOpen(false); setWizardElection(null); }}
+        onSave={handleSaveWizardElection}
+        initialElection={wizardElection}
+        departments={departments}
+        existingPositions={positions}
+        adminId="admin-1"
+      />
 
       {/* REVIEW ASPIRANT MODAL */}
       {reviewingAspirant && (

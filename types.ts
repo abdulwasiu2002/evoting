@@ -1,4 +1,3 @@
-
 export enum UserRole {
   GUEST = 'guest',
   STUDENT = 'student',
@@ -17,10 +16,52 @@ export enum PaymentStatus {
   PAID = 'paid'
 }
 
+export type ElectionStatus = 'draft' | 'scheduled' | 'live' | 'closed' | 'archived';
+
+export interface Election {
+  id: string;
+  title: string;
+  session: string; // e.g. "2024/2025" or "2025/2026"
+  description: string;
+  startDate: string; // ISO string or YYYY-MM-DD
+  endDate: string; // ISO string or YYYY-MM-DD
+  status: ElectionStatus;
+  isVotingEnabled: boolean;
+  eligibleLevels?: string[]; // e.g. ['ND I', 'ND II', 'HND I', 'HND II'] or ['All']
+  eligibleDepartments?: string[]; // e.g. ['Computer Science'] or ['All']
+  aspirantRegistrationOpen?: boolean;
+  aspirantFeeRequired?: boolean;
+  createdAt: number;
+  updatedAt: number;
+  createdBy?: string;
+}
+
+export const DEFAULT_ELECTION_ID = 'nacos-election-2024';
+
+export const DEFAULT_ELECTION: Election = {
+  id: DEFAULT_ELECTION_ID,
+  title: 'NACOS General Elections 2024/2025',
+  session: '2024/2025',
+  description: 'The official live executive election for the Nigeria Association of Computing Students (NACOS).',
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  status: 'live',
+  isVotingEnabled: true,
+  eligibleLevels: ['All'],
+  eligibleDepartments: ['All'],
+  aspirantRegistrationOpen: true,
+  aspirantFeeRequired: true,
+  createdAt: 1714521600000,
+  updatedAt: Date.now(),
+  createdBy: 'admin-1'
+};
+
 export interface Position {
+  id?: string;
   name: string;
   price: number;
   eligibleLevel: string;
+  electionId?: string;
 }
 
 export interface User {
@@ -50,6 +91,7 @@ export interface Candidate {
   level?: string;
   cgpa?: string;
   resultUrl?: string;
+  electionId?: string;
 }
 
 export interface Aspirant {
@@ -68,6 +110,7 @@ export interface Aspirant {
   status: ApprovalStatus;
   paymentStatus: PaymentStatus;
   paymentReceiptUrl?: string; // For the aspirant to prove payment
+  electionId?: string;
   createdAt: number;
 }
 
@@ -76,6 +119,7 @@ export interface Vote {
   studentId: string;
   candidateId: string;
   position: string; // Just the name reference
+  electionId?: string;
   timestamp: number;
 }
 
@@ -86,6 +130,7 @@ export interface AuditLog {
   actionType: string;
   targetId?: string;
   details: string;
+  electionId?: string;
   timestamp: number;
 }
 
@@ -93,6 +138,7 @@ export interface ElectionSettings {
   startDate: string; // ISO string
   endDate: string; // ISO string
   isVotingEnabled: boolean;
+  electionId?: string;
 }
 
 export interface AuthState {

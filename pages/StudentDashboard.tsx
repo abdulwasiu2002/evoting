@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { User, Candidate, Position, Vote, ElectionSettings, Aspirant, PaymentStatus } from '../types';
+import { User, Candidate, Position, Vote, ElectionSettings, Aspirant, PaymentStatus, Election, DEFAULT_ELECTION, DEFAULT_ELECTION_ID } from '../types';
 import { db } from '../services/mockDb';
 import { analyzeManifesto } from '../services/geminiService';
 import { Button } from '../components/Button';
@@ -88,6 +88,9 @@ const loadImage = (url: string): Promise<string | null> => {
 };
 
 export const StudentDashboard: React.FC<Props> = ({ user }) => {
+  const [elections, setElections] = useState<Election[]>([]);
+  const [selectedElectionId, setSelectedElectionId] = useState<string>(DEFAULT_ELECTION_ID);
+  const [activeElection, setActiveElection] = useState<Election | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [myVotes, setMyVotes] = useState<Vote[]>([]);
@@ -109,27 +112,44 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
   const [receiptBase64, setReceiptBase64] = useState<string | null>(null);
   const lastFetchedUserKeyRef = useRef<string | null>(null);
 
+  // Load elections on mount
   useEffect(() => {
-    const userKey = `${user.id}_${user.matricNo}`;
-    if (lastFetchedUserKeyRef.current === userKey) return;
-    lastFetchedUserKeyRef.current = userKey;
-    
     let isMounted = true;
+    db.getElections().then(all => {
+      if (!isMounted) return;
+      setElections(all);
+      const live = all.find(e => e.status === 'live');
+      const target = live || all.find(e => e.status === 'scheduled') || all[0] || DEFAULT_ELECTION;
+      setSelectedElectionId(target.id);
+      setActiveElection(target);
+    }).catch(e => {
+      console.warn("Could not load elections:", e);
+      setActiveElection(DEFAULT_ELECTION);
+    });
+    return () => { isMounted = false; };
+  }, []);
 
-    // 1. Fetch candidates independently and render ballot immediately as soon as ready
-    const candidateFetch = db.getVotingCandidates ? db.getVotingCandidates() : db.getCandidates();
+  // Fetch election-scoped candidate ballot, settings, and student votes
+  useEffect(() => {
+    if (!selectedElectionId) return;
+    let isMounted = true;
+    setCandidatesLoading(true);
+
+    const targetElection = elections.find(e => e.id === selectedElectionId) || activeElection || DEFAULT_ELECTION;
+    setActiveElection(targetElection);
+
+    const candidateFetch = db.getVotingCandidates ? db.getVotingCandidates(selectedElectionId) : db.getCandidates(selectedElectionId);
     candidateFetch
       .then((cands) => {
         if (!isMounted) return;
         setCandidates(cands as Candidate[]);
         setCandidatesLoading(false);
-        setLoading(false); // Ballot ready immediately
+        setLoading(false);
 
-        // Only fetch candidate results if the user is actually a candidate
         const normalizedUserMat = user.matricNo?.toLowerCase().trim();
         const isCand = (cands as Candidate[]).some(c => c.matricNo?.toLowerCase().trim() === normalizedUserMat);
         if (isCand) {
-          db.getResults()
+          db.getResults(selectedElectionId)
             .then((r) => { if (isMounted) setResults(r); })
             .catch((e) => console.error("Error loading candidate results:", e));
         }
@@ -137,27 +157,26 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
       .catch((err) => {
         console.error("Candidates load error:", err);
         if (isMounted) {
-          setCandidateError("Failed to load candidate ballot. Please refresh or try again.");
+          setCandidateError("Failed to load candidate ballot for this election.");
           setCandidatesLoading(false);
           setLoading(false);
         }
       });
 
-    // 2. Parallel independent background fetches for positions, settings, votes, and aspirant profile
-    db.getPositions()
+    db.getPositions(selectedElectionId)
       .then((p) => { if (isMounted) setPositions(p); })
       .catch((e) => console.error("Positions background load error:", e));
 
-    db.getElectionSettings()
+    db.getElectionSettings(selectedElectionId)
       .then((s) => { if (isMounted) setSettings(s); })
       .catch((e) => console.error("Election settings background load error:", e));
 
-    db.getMyVotes(user.id)
+    db.getMyVotes(user.id, selectedElectionId)
       .then((v) => { if (isMounted) setMyVotes(v); })
       .catch((e) => console.error("My votes background load error:", e));
 
     if (db.getMyAspirantProfile) {
-      db.getMyAspirantProfile(user.matricNo)
+      db.getMyAspirantProfile(user.matricNo, selectedElectionId)
         .then((asp) => { if (isMounted) setMyAspirantProfile(asp); })
         .catch((e) => console.error("Aspirant profile background load error:", e));
     }
@@ -165,7 +184,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
     return () => {
       isMounted = false;
     };
-  }, [user.id, user.matricNo]);
+  }, [user.id, user.matricNo, selectedElectionId]);
 
   const normalizedUserMatric = user.matricNo?.toLowerCase().trim();
   const myCandidateProfile = candidates.find(c => c.matricNo?.toLowerCase().trim() === normalizedUserMatric);
@@ -246,7 +265,7 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
     try {
         for (const [position, candidateId] of votesToCast) {
             try {
-                const vote = await db.castVote(user.id, candidateId as string, position);
+                const vote = await db.castVote(user.id, candidateId as string, position, selectedElectionId);
                 successfulVotes.push(vote);
             } catch (err: any) {
                 errors.push(`${position}: ${err.message}`);
@@ -502,6 +521,51 @@ export const StudentDashboard: React.FC<Props> = ({ user }) => {
                 Verified Voter
             </span>
         </div>
+      </div>
+
+      {/* ACTIVE ELECTION HEADER & SELECTOR BANNER */}
+      <div className="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Election Ballot</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+              activeElection?.status === 'live' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+              activeElection?.status === 'scheduled' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+              activeElection?.status === 'closed' ? 'bg-slate-700 text-slate-300 border border-slate-600' :
+              activeElection?.status === 'archived' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+              'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            }`}>
+              {activeElection?.status === 'live' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>}
+              {activeElection?.status?.toUpperCase() || 'LIVE'}
+            </span>
+            <span className="text-xs text-slate-400">Tenure: <strong className="text-white">{activeElection?.session || '2024/2025'}</strong></span>
+          </div>
+          <h2 className="text-lg font-bold text-white mt-1">
+            {activeElection?.title || 'NACOS General Elections 2024/2025'}
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {activeElection?.status === 'live' 
+              ? 'Official ballot is active. Select your preferred candidates below and submit your vote.'
+              : `Voting is currently ${activeElection?.status}. Scheduled: ${activeElection?.startDate} to ${activeElection?.endDate}.`}
+          </p>
+        </div>
+
+        {elections.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 whitespace-nowrap">Switch Election:</span>
+            <select
+              value={selectedElectionId}
+              onChange={(e) => setSelectedElectionId(e.target.value)}
+              className="bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
+              {elections.map((el) => (
+                <option key={el.id} value={el.id}>
+                  [{el.status.toUpperCase()}] {el.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* ASPIRANT PORTAL SECTION */}
